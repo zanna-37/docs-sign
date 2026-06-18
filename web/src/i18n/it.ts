@@ -15,6 +15,7 @@ const it: Dict = {
     deleteNow: "Elimina ora",
     rename: "Rinomina",
     download: "Scarica",
+    preview: "Anteprima",
     restore: "Ripristina",
     cancel: "Annulla",
     save: "Salva",

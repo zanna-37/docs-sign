@@ -13,6 +13,7 @@ const en = {
     deleteNow: "Delete now",
     rename: "Rename",
     download: "Download",
+    preview: "Preview",
     restore: "Restore",
     cancel: "Cancel",
     save: "Save",

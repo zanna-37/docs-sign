@@ -227,6 +227,18 @@ export function DocumentsPage() {
                                 </p>
                               </div>
                               <div className="flex shrink-0 items-center gap-1">
+                                <Button
+                                  variant="secondary"
+                                  onClick={() =>
+                                    window.open(
+                                      `/api/exports/${x.id}/file?inline=1`,
+                                      "_blank",
+                                      "noopener",
+                                    )
+                                  }
+                                >
+                                  {t("common.preview")}
+                                </Button>
                                 <a
                                   href={`/api/exports/${x.id}/file`}
                                   download

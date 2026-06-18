@@ -56,8 +56,13 @@ func (s *Server) handleExportFile(w http.ResponseWriter, r *http.Request) {
 	dek := sess.DEK()
 	defer crypto.Zero(dek)
 
+	// inline=1 renders in the browser (preview); otherwise force a download.
+	disposition := "attachment"
+	if r.URL.Query().Get("inline") == "1" {
+		disposition = "inline"
+	}
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", downloadFilename(exp.Name)))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("%s; filename=%q", disposition, downloadFilename(exp.Name)))
 	_ = s.blobs.DecryptTo(exp.BlobPath, dek, w)
 }
 
