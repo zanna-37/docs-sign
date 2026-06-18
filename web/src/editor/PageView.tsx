@@ -14,6 +14,7 @@ interface Props {
   placements: Placement[];
   textboxes: TextBox[];
   selectedId: string | null;
+  editingTextId: string | null;
   bitmapFor: (signatureId: string) => ImageBitmap | null;
   aspectFor: (signatureId: string) => number;
   lockAspect: boolean;
@@ -24,6 +25,8 @@ interface Props {
   onDelete: (id: string) => void;
   onTextChange: (b: TextBox) => void;
   onTextDelete: (id: string) => void;
+  onStartEditText: (id: string) => void;
+  onStopEditText: () => void;
 }
 
 export function PageView({
@@ -34,6 +37,7 @@ export function PageView({
   placements,
   textboxes,
   selectedId,
+  editingTextId,
   bitmapFor,
   aspectFor,
   lockAspect,
@@ -44,6 +48,8 @@ export function PageView({
   onDelete,
   onTextChange,
   onTextDelete,
+  onStartEditText,
+  onStopEditText,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -122,9 +128,12 @@ export function PageView({
             box={b}
             scale={scale}
             selected={b.id === selectedId}
+            editing={b.id === editingTextId}
             toPoint={toPoint}
             onSelect={() => onSelect(b.id)}
             onChange={onTextChange}
+            onStartEdit={() => onStartEditText(b.id)}
+            onStopEdit={onStopEditText}
             onDelete={() => onTextDelete(b.id)}
           />
         ))}

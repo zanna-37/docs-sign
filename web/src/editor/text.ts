@@ -89,6 +89,10 @@ export function renderTextPng(tb: TextBox, pxPerPt: number): string {
   ctx.font = fontString(tb);
   const lines = tb.text.split("\n");
   const lh = tb.fontSize * LINE_HEIGHT;
-  lines.forEach((line, i) => ctx.fillText(line, TEXT_PAD, TEXT_PAD + i * lh));
+  // Match the browser: text within a line box sits below half of the line's leading.
+  const halfLeading = (lh - tb.fontSize) / 2;
+  lines.forEach((line, i) =>
+    ctx.fillText(line, TEXT_PAD, TEXT_PAD + halfLeading + i * lh),
+  );
   return canvas.toDataURL("image/png");
 }

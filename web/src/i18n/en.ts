@@ -122,6 +122,7 @@ const en = {
     text: {
       default: "Text",
       placeholder: "Type text…",
+      hint: "Double-click the box on the page to edit its text.",
       font: "Font",
       size: "Size",
       color: "Color",

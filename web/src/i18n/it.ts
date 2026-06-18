@@ -125,6 +125,7 @@ const it: Dict = {
     text: {
       default: "Testo",
       placeholder: "Scrivi il testo…",
+      hint: "Fai doppio clic sulla casella nella pagina per modificarne il testo.",
       font: "Carattere",
       size: "Dimensione",
       color: "Colore",

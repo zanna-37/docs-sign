@@ -1,13 +1,17 @@
+import { useLayoutEffect, useRef } from "react";
 import { beginDrag, CORNERS, rotate } from "./drag";
-import { cssFamily, LINE_HEIGHT, TEXT_PAD, type TextBox } from "./text";
+import { cssFamily, LINE_HEIGHT, refit, TEXT_PAD, type TextBox } from "./text";
 
 interface Props {
   box: TextBox;
   scale: number;
   selected: boolean;
+  editing: boolean;
   toPoint: (clientX: number, clientY: number) => { x: number; y: number };
   onSelect: () => void;
   onChange: (b: TextBox) => void;
+  onStartEdit: () => void;
+  onStopEdit: () => void;
   onDelete: () => void;
 }
 
@@ -15,11 +19,25 @@ export function TextBoxItem({
   box: b,
   scale,
   selected,
+  editing,
   toPoint,
   onSelect,
   onChange,
+  onStartEdit,
+  onStopEdit,
   onDelete,
 }: Props) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // Focus and select all when entering edit mode (so typing replaces the default text).
+  useLayoutEffect(() => {
+    if (editing && taRef.current) {
+      const ta = taRef.current;
+      ta.focus();
+      ta.select();
+    }
+  }, [editing]);
+
   const onMoveStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     onSelect();
@@ -31,7 +49,6 @@ export function TextBoxItem({
     });
   };
 
-  // Corner resize scales the font uniformly (keeps the text's proportions).
   const onResizeStart = (e: React.PointerEvent, sx: number, sy: number) => {
     e.stopPropagation();
     onSelect();
@@ -72,6 +89,20 @@ export function TextBoxItem({
   const width = b.w * scale;
   const height = b.h * scale;
 
+  const textStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    fontFamily: cssFamily(b.family),
+    fontSize: b.fontSize * scale,
+    fontWeight: b.bold ? 700 : 400,
+    color: b.color,
+    lineHeight: LINE_HEIGHT,
+    whiteSpace: "pre",
+    padding: TEXT_PAD * scale,
+    boxSizing: "border-box",
+    overflow: "hidden",
+  };
+
   return (
     <div
       style={{
@@ -84,32 +115,50 @@ export function TextBoxItem({
         transformOrigin: "center center",
         touchAction: "none",
       }}
-      onPointerDown={onMoveStart}
+      onPointerDown={editing ? (e) => e.stopPropagation() : onMoveStart}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+        onStartEdit();
+      }}
       className={
-        selected
-          ? "cursor-move outline outline-2 outline-blue-500"
-          : "cursor-move outline-1 outline-dashed outline-blue-300 hover:outline"
+        editing
+          ? "cursor-text outline outline-2 outline-blue-500"
+          : selected
+            ? "cursor-move outline outline-2 outline-blue-500"
+            : "cursor-move outline-1 outline-dashed outline-blue-300 hover:outline"
       }
     >
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          fontFamily: cssFamily(b.family),
-          fontSize: b.fontSize * scale,
-          fontWeight: b.bold ? 700 : 400,
-          color: b.color,
-          lineHeight: LINE_HEIGHT,
-          whiteSpace: "pre",
-          padding: TEXT_PAD * scale,
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
-        className="pointer-events-none select-none"
-      >
-        {b.text || " "}
-      </div>
-      {selected && (
+      {editing ? (
+        <textarea
+          ref={taRef}
+          value={b.text}
+          wrap="off"
+          spellCheck={false}
+          onPointerDown={(e) => e.stopPropagation()}
+          onChange={(e) => onChange(refit({ ...b, text: e.target.value }))}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Escape") {
+              e.preventDefault();
+              onStopEdit();
+            }
+          }}
+          style={{
+            ...textStyle,
+            border: "none",
+            outline: "none",
+            background: "transparent",
+            resize: "none",
+          }}
+        />
+      ) : (
+        <div style={textStyle} className="pointer-events-none select-none">
+          {b.text || " "}
+        </div>
+      )}
+
+      {selected && !editing && (
         <>
           {CORNERS.map((c, i) => (
             <div

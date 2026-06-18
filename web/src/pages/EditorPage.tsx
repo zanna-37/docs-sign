@@ -52,6 +52,7 @@ export function EditorPage() {
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [textboxes, setTextboxes] = useState<TextBox[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [armed, setArmed] = useState<string | null>(null); // signature id
   const [armText, setArmText] = useState(false);
   const [lockAspect, setLockAspect] = useState(true);
@@ -146,11 +147,18 @@ export function EditorPage() {
     }
   };
 
+  // Selecting something other than the box being edited exits edit mode.
+  const select = (id: string | null) => {
+    setSelectedId(id);
+    if (id !== editingTextId) setEditingTextId(null);
+  };
+
   const onPlace = (pageIndex: number, point: { x: number; y: number }) => {
     if (armText) {
       const tb = newTextBox(uid(), pageIndex, point.x, point.y, t("editor.text.default"));
       setTextboxes((ts) => [...ts, tb]);
       setSelectedId(tb.id);
+      setEditingTextId(tb.id); // start editing the new box immediately
       setArmText(false);
       return;
     }
@@ -170,7 +178,7 @@ export function EditorPage() {
       rotation: 0,
     };
     setPlacements((ps) => [...ps, np]);
-    setSelectedId(np.id);
+    select(np.id);
     setArmed(null);
   };
 
@@ -354,13 +362,7 @@ export function EditorPage() {
 
           {selectedText && (
             <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-3">
-              <textarea
-                value={selectedText.text}
-                onChange={(e) => patchText({ text: e.target.value })}
-                placeholder={t("editor.text.placeholder")}
-                rows={2}
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-              />
+              <p className="text-xs text-gray-400">{t("editor.text.hint")}</p>
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-xs text-gray-600">
                   {t("editor.text.font")}
@@ -442,12 +444,13 @@ export function EditorPage() {
                 placements={placements.filter((p) => p.page === i)}
                 textboxes={textboxes.filter((b) => b.page === i)}
                 selectedId={selectedId}
+                editingTextId={editingTextId}
                 bitmapFor={(sid) => sigBitmaps[sid] ?? null}
                 aspectFor={aspectFor}
                 lockAspect={lockAspect}
                 armed={!!armed || armText}
                 onPlace={onPlace}
-                onSelect={setSelectedId}
+                onSelect={select}
                 onChange={(p) =>
                   setPlacements((ps) => ps.map((x) => (x.id === p.id ? p : x)))
                 }
@@ -461,7 +464,10 @@ export function EditorPage() {
                 onTextDelete={(tid) => {
                   setTextboxes((ts) => ts.filter((b) => b.id !== tid));
                   setSelectedId(null);
+                  setEditingTextId(null);
                 }}
+                onStartEditText={(tid) => setEditingTextId(tid)}
+                onStopEditText={() => setEditingTextId(null)}
               />
             ))}
         </div>
