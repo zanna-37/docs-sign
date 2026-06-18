@@ -24,6 +24,7 @@ import {
 } from "../editor/text";
 import { PageView } from "../editor/PageView";
 import { SignatureCanvas } from "../components/SignatureCanvas";
+import { useDialog } from "../components/Dialog";
 import { Button, ErrorText, Modal, Spinner } from "../components/ui";
 
 const TARGET_WIDTH = 720;
@@ -41,6 +42,7 @@ export function EditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const dialog = useDialog();
   const destroyRef = useRef<(() => void) | null>(null);
   const overlaysRef = useRef<Array<HTMLDivElement | null>>([]);
 
@@ -245,12 +247,23 @@ export function EditorPage() {
   const dirty = savedRef.current !== null && snapshot !== savedRef.current;
 
   const blocker = useBlocker(dirty);
+  const leavingRef = useRef(false);
   useEffect(() => {
-    if (blocker.state === "blocked") {
-      if (window.confirm(t("editor.confirmLeave"))) blocker.proceed();
-      else blocker.reset();
+    if (blocker.state === "blocked" && !leavingRef.current) {
+      leavingRef.current = true;
+      void dialog
+        .confirm({
+          title: t("editor.confirmLeave"),
+          confirmLabel: t("common.confirm"),
+          danger: true,
+        })
+        .then((ok) => {
+          leavingRef.current = false;
+          if (ok) blocker.proceed();
+          else blocker.reset();
+        });
     }
-  }, [blocker, t]);
+  }, [blocker, dialog, t]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {

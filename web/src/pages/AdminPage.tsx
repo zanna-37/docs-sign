@@ -4,11 +4,13 @@ import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { AdminUser } from "../api/types";
 import { Button, Card, ErrorText, Field, Input, Spinner } from "../components/ui";
+import { useDialog } from "../components/Dialog";
 import { formatDate } from "../lib/format";
 
 export function AdminPage() {
   const { user: me } = useAuth();
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState("");
 
@@ -58,8 +60,18 @@ export function AdminPage() {
   };
 
   const reset = async (u: AdminUser) => {
-    if (!confirm(t("admin.confirmReset", { name: u.username }))) return;
-    const tmp = prompt(t("admin.resetPrompt"));
+    if (
+      !(await dialog.confirm({
+        title: t("admin.confirmReset", { name: u.username }),
+        confirmLabel: t("admin.reset"),
+        danger: true,
+      }))
+    )
+      return;
+    const tmp = await dialog.prompt({
+      title: t("admin.resetPrompt"),
+      confirmLabel: t("admin.reset"),
+    });
     if (!tmp) return;
     try {
       await api.post(`/admin/users/${u.id}/reset`, { tempPassword: tmp });
@@ -70,7 +82,14 @@ export function AdminPage() {
   };
 
   const remove = async (u: AdminUser) => {
-    if (!confirm(t("admin.confirmDelete", { name: u.username }))) return;
+    if (
+      !(await dialog.confirm({
+        title: t("admin.confirmDelete", { name: u.username }),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api.del(`/admin/users/${u.id}`);
       await reload();

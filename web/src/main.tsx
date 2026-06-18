@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
 import "./i18n";
 import { AuthProvider } from "./auth/AuthContext";
+import { DialogProvider } from "./components/Dialog";
 import { App } from "./App";
 
 // A data router (rather than <BrowserRouter>) so useBlocker works for the editor's
@@ -13,7 +14,9 @@ const router = createBrowserRouter([
     path: "*",
     element: (
       <AuthProvider>
-        <App />
+        <DialogProvider>
+          <App />
+        </DialogProvider>
       </AuthProvider>
     ),
   },

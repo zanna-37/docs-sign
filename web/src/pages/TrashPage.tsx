@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { TrashItem } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
+import { useDialog } from "../components/Dialog";
 import { formatBytes, formatDate } from "../lib/format";
 
 export function TrashPage() {
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [items, setItems] = useState<TrashItem[] | null>(null);
   const [retentionDays, setRetentionDays] = useState(30);
   const [error, setError] = useState("");
@@ -46,7 +48,14 @@ export function TrashPage() {
   };
 
   const purge = async (it: TrashItem) => {
-    if (!confirm(t("trash.confirmPurge", { name: it.name }))) return;
+    if (
+      !(await dialog.confirm({
+        title: t("trash.confirmPurge", { name: it.name }),
+        confirmLabel: t("common.deleteNow"),
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api.del(`/trash/${it.kind}/${it.id}`);
       await reload();
@@ -56,7 +65,14 @@ export function TrashPage() {
   };
 
   const empty = async () => {
-    if (!confirm(t("trash.confirmEmpty"))) return;
+    if (
+      !(await dialog.confirm({
+        title: t("trash.confirmEmpty"),
+        confirmLabel: t("trash.emptyButton"),
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api.post("/trash/empty");
       await reload();

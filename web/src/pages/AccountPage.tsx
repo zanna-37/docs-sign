@@ -4,6 +4,7 @@ import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { User } from "../api/types";
 import { applyLanguage } from "../i18n";
+import { useDialog } from "../components/Dialog";
 import { RecoveryCodeDialog } from "../components/RecoveryCodeDialog";
 import { Button, Card, ErrorText, Field, Input } from "../components/ui";
 
@@ -19,6 +20,7 @@ function Notice({ children }: { children: React.ReactNode }) {
 export function AccountPage() {
   const { user, setUser } = useAuth();
   const { t } = useTranslation();
+  const dialog = useDialog();
 
   const [username, setUsername] = useState(user?.username ?? "");
   const [usernameNotice, setUsernameNotice] = useState("");
@@ -90,7 +92,14 @@ export function AccountPage() {
   };
 
   const regenerate = async () => {
-    if (!confirm(t("account.confirmRegenerate"))) return;
+    if (
+      !(await dialog.confirm({
+        title: t("account.confirmRegenerate"),
+        confirmLabel: t("account.generateRecovery"),
+        danger: true,
+      }))
+    )
+      return;
     setError("");
     try {
       const res = await api.post<{ recoveryCode: string }>(

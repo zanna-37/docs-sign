@@ -5,6 +5,7 @@ import { api, ApiError } from "../api/client";
 import type { DocumentItem, ExportItem } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { Dropzone } from "../components/Dropzone";
+import { useDialog } from "../components/Dialog";
 import { TrashIcon } from "../components/icons";
 import { formatBytes, formatDate } from "../lib/format";
 
@@ -13,6 +14,7 @@ const pdfName = (name: string) => (/\.pdf$/i.test(name) ? name : `${name}.pdf`);
 export function DocumentsPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [items, setItems] = useState<DocumentItem[] | null>(null);
   const [exports, setExports] = useState<ExportItem[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -68,7 +70,11 @@ export function DocumentsPage() {
   };
 
   const rename = async (d: DocumentItem) => {
-    const name = prompt(t("documents.renamePrompt"), d.name);
+    const name = await dialog.prompt({
+      title: t("documents.renamePrompt"),
+      defaultValue: d.name,
+      confirmLabel: t("common.save"),
+    });
     if (!name || name === d.name) return;
     try {
       await api.patch(`/documents/${d.id}`, { name });
@@ -79,7 +85,14 @@ export function DocumentsPage() {
   };
 
   const remove = async (d: DocumentItem) => {
-    if (!confirm(t("documents.confirmDelete", { name: d.name }))) return;
+    if (
+      !(await dialog.confirm({
+        title: t("documents.confirmDelete", { name: d.name }),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api.del(`/documents/${d.id}`);
       await reload();
@@ -89,7 +102,14 @@ export function DocumentsPage() {
   };
 
   const removeExport = async (x: ExportItem) => {
-    if (!confirm(t("documents.confirmDeleteExport", { name: x.name }))) return;
+    if (
+      !(await dialog.confirm({
+        title: t("documents.confirmDeleteExport", { name: x.name }),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api.del(`/exports/${x.id}`);
       await reload();

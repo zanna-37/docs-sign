@@ -5,6 +5,7 @@ import type { Signature } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { SignatureImage } from "../components/SignatureImage";
 import { Dropzone } from "../components/Dropzone";
+import { useDialog } from "../components/Dialog";
 import { TrashIcon } from "../components/icons";
 import { formatBytes, formatDate } from "../lib/format";
 
@@ -18,6 +19,7 @@ const checker: React.CSSProperties = {
 
 export function SignaturesPage() {
   const { t } = useTranslation();
+  const dialog = useDialog();
   const [items, setItems] = useState<Signature[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,7 +65,11 @@ export function SignaturesPage() {
   };
 
   const rename = async (s: Signature) => {
-    const name = prompt(t("signatures.renamePrompt"), s.name);
+    const name = await dialog.prompt({
+      title: t("signatures.renamePrompt"),
+      defaultValue: s.name,
+      confirmLabel: t("common.save"),
+    });
     if (!name || name === s.name) return;
     try {
       await api.patch(`/signatures/${s.id}`, { name });
@@ -74,7 +80,14 @@ export function SignaturesPage() {
   };
 
   const remove = async (s: Signature) => {
-    if (!confirm(t("signatures.confirmDelete", { name: s.name }))) return;
+    if (
+      !(await dialog.confirm({
+        title: t("signatures.confirmDelete", { name: s.name }),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api.del(`/signatures/${s.id}`);
       await reload();

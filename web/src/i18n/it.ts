@@ -18,6 +18,7 @@ const it: Dict = {
     preview: "Anteprima",
     restore: "Ripristina",
     cancel: "Annulla",
+    confirm: "Conferma",
     save: "Salva",
     username: "Nome utente",
     password: "Password",

@@ -16,6 +16,7 @@ const en = {
     preview: "Preview",
     restore: "Restore",
     cancel: "Cancel",
+    confirm: "Confirm",
     save: "Save",
     username: "Username",
     password: "Password",
