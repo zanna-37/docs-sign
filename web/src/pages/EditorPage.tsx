@@ -403,7 +403,7 @@ export function EditorPage() {
           </div>
 
           {selectedText && (
-            <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-3">
+            <div className="fixed inset-x-0 bottom-0 z-30 max-h-[60vh] space-y-3 overflow-y-auto border-t border-gray-200 bg-white p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] md:static md:inset-auto md:z-auto md:max-h-none md:overflow-visible md:rounded-lg md:border md:shadow-none">
               <p className="text-xs text-gray-400">{t("editor.text.hint")}</p>
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-xs text-gray-600">
