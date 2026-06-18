@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { Button, Modal } from "./ui";
 
+// legacyCopy copies text via a temporary textarea selection; works in insecure contexts.
+function legacyCopy(text: string): boolean {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 // Shows a one-time recovery code. The user must confirm they have saved it, since it is
 // the only way to recover their vault if they forget their password.
 export function RecoveryCodeDialog({
@@ -12,13 +30,24 @@ export function RecoveryCodeDialog({
 }) {
   const [copied, setCopied] = useState(false);
 
+  // navigator.clipboard is only available in secure contexts (HTTPS/localhost). Fall back
+  // to a textarea + execCommand("copy") so copying works over plain HTTP too.
   const copy = async () => {
+    let ok = false;
     try {
-      await navigator.clipboard.writeText(code);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+        ok = true;
+      }
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      ok = legacyCopy(code);
+    }
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard may be unavailable; the code is still shown */
     }
   };
 

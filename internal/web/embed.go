@@ -32,6 +32,11 @@ func Handler() http.Handler {
 		if p == "" {
 			p = "index.html"
 		}
+		// index.html must not be cached so a rebuilt app (with new hashed asset names) is
+		// picked up on the next load; the hashed assets themselves stay cacheable.
+		if p == "index.html" {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 		if _, err := fs.Stat(dist, p); err != nil {
 			// Unknown path: let the SPA's router handle it (unless it looks like a
 			// missing static asset, which should 404 honestly).
@@ -61,6 +66,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request, dist fs.FS) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
 	_, _ = w.Write(data)
 }
 

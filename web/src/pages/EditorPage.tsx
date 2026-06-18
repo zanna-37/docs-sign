@@ -11,6 +11,7 @@ import type {
 import { loadPdf, type PageSize } from "../editor/pdf";
 import { fetchArrayBuffer } from "../lib/blobUrls";
 import { useSignatureBitmaps } from "../lib/signatureBitmaps";
+import { uid } from "../lib/uid";
 import type { Placement, SignatureMeta } from "../editor/types";
 import { PageView } from "../editor/PageView";
 import { SignatureCanvas } from "../components/SignatureCanvas";
@@ -41,6 +42,7 @@ export function EditorPage() {
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [armed, setArmed] = useState<string | null>(null);
+  const [lockAspect, setLockAspect] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [done, setDone] = useState<ExportItem | null>(null);
 
@@ -120,6 +122,24 @@ export function EditorPage() {
   const sigIds = useMemo(() => signatures.map((s) => s.id), [signatures]);
   const sigBitmaps = useSignatureBitmaps(sigIds);
 
+  const aspectFor = (signatureId: string) => {
+    const m = sigMap.get(signatureId);
+    return m && m.height > 0 ? m.width / m.height : 1;
+  };
+
+  // Toggling the lock back on restores every placement to its signature's native ratio.
+  const toggleLock = (v: boolean) => {
+    setLockAspect(v);
+    if (v) {
+      setPlacements((ps) =>
+        ps.map((p) => {
+          const a = aspectFor(p.signatureId);
+          return a > 0 ? { ...p, h: p.w / a } : p;
+        }),
+      );
+    }
+  };
+
   const onPlace = (pageIndex: number, point: { x: number; y: number }) => {
     if (!armed) return;
     const meta = sigMap.get(armed);
@@ -127,7 +147,7 @@ export function EditorPage() {
     const w = 180;
     const aspect = meta.width > 0 ? meta.height / meta.width : 0.4;
     const np: Placement = {
-      id: crypto.randomUUID(),
+      id: uid(),
       signatureId: armed,
       page: pageIndex,
       cx: point.x,
@@ -265,9 +285,20 @@ export function EditorPage() {
               ))}
             </div>
           )}
+          <label className="mt-2 flex items-center gap-2 border-t border-gray-200 pt-3 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={lockAspect}
+              onChange={(e) => toggleLock(e.target.checked)}
+            />
+            Lock signature ratio
+          </label>
           <p className="pt-2 text-xs text-gray-400">
             Select a signature, click a page to place it, then drag to move,
             pull the corners to resize, or use the top handle to rotate.
+            {lockAspect
+              ? " Resizing keeps the original proportions."
+              : " Resizing is free (proportions can distort)."}
           </p>
         </aside>
 
@@ -283,6 +314,8 @@ export function EditorPage() {
                 placements={placements.filter((p) => p.page === i)}
                 selectedId={selectedId}
                 bitmapFor={(sid) => sigBitmaps[sid] ?? null}
+                aspectFor={aspectFor}
+                lockAspect={lockAspect}
                 armed={!!armed}
                 onPlace={onPlace}
                 onSelect={setSelectedId}

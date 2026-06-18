@@ -29,6 +29,8 @@ interface Props {
   scale: number;
   selected: boolean;
   bitmap: ImageBitmap | null;
+  lockAspect: boolean;
+  aspect: number; // native signature width/height, used when lockAspect is true
   toPoint: (clientX: number, clientY: number) => { x: number; y: number };
   onSelect: () => void;
   onChange: (p: Placement) => void;
@@ -54,6 +56,8 @@ export function PlacementBox({
   scale,
   selected,
   bitmap,
+  lockAspect,
+  aspect,
   toPoint,
   onSelect,
   onChange,
@@ -82,8 +86,16 @@ export function PlacementBox({
     beginDrag((ev) => {
       const P = toPoint(ev.clientX, ev.clientY);
       const local = rotate(P.x - A.x, P.y - A.y, -theta);
-      const w = Math.max(12, local.x * sx);
-      const h = Math.max(12, local.y * sy);
+      let w = Math.max(12, local.x * sx);
+      let h = Math.max(12, local.y * sy);
+      if (lockAspect && aspect > 0) {
+        // Constrain to the native ratio, driven by whichever axis the user pulls more.
+        if (w / aspect >= h) {
+          h = w / aspect;
+        } else {
+          w = h * aspect;
+        }
+      }
       const half = rotate((sx * w) / 2, (sy * h) / 2, theta);
       onChange({ ...p, w, h, cx: A.x + half.x, cy: A.y + half.y });
     });
