@@ -4,6 +4,7 @@ import type { Signature } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { SignatureImage } from "../components/SignatureImage";
 import { Dropzone } from "../components/Dropzone";
+import { TrashIcon } from "../components/icons";
 import { formatBytes, formatDate } from "../lib/format";
 
 export function SignaturesPage() {
@@ -137,8 +138,14 @@ export function SignaturesPage() {
                   <Button variant="ghost" onClick={() => rename(s)}>
                     Rename
                   </Button>
-                  <Button variant="ghost" onClick={() => remove(s)}>
-                    Delete
+                  <Button
+                    variant="ghost"
+                    className="px-2"
+                    title="Delete"
+                    aria-label="Delete"
+                    onClick={() => remove(s)}
+                  >
+                    <TrashIcon />
                   </Button>
                 </div>
               </div>

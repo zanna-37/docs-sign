@@ -4,6 +4,7 @@ import { api, ApiError } from "../api/client";
 import type { DocumentItem, ExportItem } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { Dropzone } from "../components/Dropzone";
+import { TrashIcon } from "../components/icons";
 import { formatBytes, formatDate } from "../lib/format";
 
 export function DocumentsPage() {
@@ -145,6 +146,18 @@ export function DocumentsPage() {
                       <Button onClick={() => navigate(`/documents/${d.id}/sign`)}>
                         Sign
                       </Button>
+                      <Button variant="ghost" onClick={() => rename(d)}>
+                        Rename
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="px-2"
+                        title="Delete"
+                        aria-label="Delete"
+                        onClick={() => remove(d)}
+                      >
+                        <TrashIcon />
+                      </Button>
                       <button
                         onClick={() =>
                           setExpanded((m) => ({ ...m, [d.id]: !m[d.id] }))
@@ -156,11 +169,6 @@ export function DocumentsPage() {
                             : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                       >
-                        <ChevronIcon
-                          className={`h-4 w-4 transition-transform duration-150 ${
-                            isOpen ? "rotate-90" : ""
-                          }`}
-                        />
                         Signed
                         <span
                           className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
@@ -171,13 +179,12 @@ export function DocumentsPage() {
                         >
                           {docExports.length}
                         </span>
+                        <ChevronIcon
+                          className={`h-4 w-4 transition-transform duration-150 ${
+                            isOpen ? "rotate-180" : ""
+                          }`}
+                        />
                       </button>
-                      <Button variant="ghost" onClick={() => rename(d)}>
-                        Rename
-                      </Button>
-                      <Button variant="ghost" onClick={() => remove(d)}>
-                        Delete
-                      </Button>
                     </div>
                   </div>
 
@@ -197,21 +204,16 @@ export function DocumentsPage() {
                               key={x.id}
                               className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm transition hover:border-gray-300 hover:shadow"
                             >
-                              <div className="flex min-w-0 items-center gap-3">
-                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-500">
-                                  <PdfIcon />
-                                </span>
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium text-gray-800">
-                                    {x.name}
-                                  </p>
-                                  <p className="text-xs text-gray-400">
-                                    {x.pageCount} page
-                                    {x.pageCount === 1 ? "" : "s"} ·{" "}
-                                    {formatBytes(x.byteSize)} ·{" "}
-                                    {formatDate(x.createdAt)}
-                                  </p>
-                                </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-gray-800">
+                                  {x.name}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  {x.pageCount} page
+                                  {x.pageCount === 1 ? "" : "s"} ·{" "}
+                                  {formatBytes(x.byteSize)} ·{" "}
+                                  {formatDate(x.createdAt)}
+                                </p>
                               </div>
                               <div className="flex shrink-0 items-center gap-1">
                                 <a
@@ -222,9 +224,12 @@ export function DocumentsPage() {
                                 </a>
                                 <Button
                                   variant="ghost"
+                                  className="px-2"
+                                  title="Delete"
+                                  aria-label="Delete"
                                   onClick={() => removeExport(x)}
                                 >
-                                  Delete
+                                  <TrashIcon />
                                 </Button>
                               </div>
                             </li>
@@ -255,25 +260,8 @@ function ChevronIcon({ className }: { className?: string }) {
       className={className}
       aria-hidden="true"
     >
-      <path d="M9 6l6 6-6 6" />
+      <path d="M6 9l6 6 6-6" />
     </svg>
   );
 }
 
-function PdfIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-      <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
-    </svg>
-  );
-}
