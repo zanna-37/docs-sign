@@ -7,6 +7,12 @@ export class ApiError extends Error {
   }
 }
 
+// errMessage returns the server-provided message for an ApiError, falling back to a
+// caller-supplied (already-translated) message for any other failure.
+export function errMessage(err: unknown, fallback: string): string {
+  return err instanceof ApiError ? err.message : fallback;
+}
+
 async function request(path: string, init?: RequestInit): Promise<Response> {
   return fetch("/api" + path, {
     credentials: "same-origin",

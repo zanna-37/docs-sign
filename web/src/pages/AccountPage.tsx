@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, ApiError } from "../api/client";
+import { api, errMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { User } from "../api/types";
 import { applyLanguage } from "../i18n";
+import { validateNewPassword } from "../lib/validation";
 import { useDialog } from "../components/Dialog";
 import { RecoveryCodeDialog } from "../components/RecoveryCodeDialog";
 import { Button, Card, ErrorText, Field, Input } from "../components/ui";
@@ -47,7 +48,7 @@ export function AccountPage() {
       setUsernameNotice(t("account.usernameUpdated"));
     } catch (err) {
       setUsernameError(
-        err instanceof ApiError ? err.message : t("account.updateFailed"),
+        errMessage(err, t("account.updateFailed")),
       );
     }
   };
@@ -62,7 +63,7 @@ export function AccountPage() {
       });
       setUser(res.user);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("account.updateFailed"));
+      setError(errMessage(err, t("account.updateFailed")));
     }
   };
 
@@ -70,12 +71,9 @@ export function AccountPage() {
     e.preventDefault();
     setPwError("");
     setPwNotice("");
-    if (password.length < 8) {
-      setPwError(t("common.passwordTooShort"));
-      return;
-    }
-    if (password !== confirmPassword) {
-      setPwError(t("common.passwordsDontMatch"));
+    const invalid = validateNewPassword(password, confirmPassword);
+    if (invalid) {
+      setPwError(t(invalid));
       return;
     }
     setBusy(true);
@@ -85,7 +83,7 @@ export function AccountPage() {
       setConfirmPassword("");
       setPwNotice(t("account.passwordUpdated"));
     } catch (err) {
-      setPwError(err instanceof ApiError ? err.message : t("account.updateFailed"));
+      setPwError(errMessage(err, t("account.updateFailed")));
     } finally {
       setBusy(false);
     }
@@ -107,7 +105,7 @@ export function AccountPage() {
       );
       setRecoveryCode(res.recoveryCode);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("account.updateFailed"));
+      setError(errMessage(err, t("account.updateFailed")));
     }
   };
 

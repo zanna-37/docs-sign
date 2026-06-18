@@ -54,12 +54,6 @@ func Handler() http.Handler {
 }
 
 func serveIndex(w http.ResponseWriter, r *http.Request, dist fs.FS) {
-	f, err := dist.Open("index.html")
-	if err != nil {
-		http.Error(w, "frontend not built", http.StatusNotImplemented)
-		return
-	}
-	defer f.Close()
 	data, err := fs.ReadFile(dist, "index.html")
 	if err != nil {
 		http.Error(w, "frontend not built", http.StatusNotImplemented)

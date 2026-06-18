@@ -1,5 +1,6 @@
 import { SignatureCanvas } from "../components/SignatureCanvas";
-import { beginDrag, CORNERS, rotate, type ResolveMove } from "./drag";
+import { beginDrag, beginMove, beginRotate, rotate, type ResolveMove } from "./drag";
+import { SelectionHandles } from "./SelectionHandles";
 import type { Placement } from "./types";
 
 interface Props {
@@ -36,14 +37,7 @@ export function PlacementBox({
   const onMoveStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     onSelect();
-    // Grab offset from the pointer to the box center (in this page's points).
-    const start = toPoint(e.clientX, e.clientY);
-    const grabX = p.cx - start.x;
-    const grabY = p.cy - start.y;
-    beginDrag((ev) => {
-      const r = resolveMove(ev.clientX, ev.clientY, grabX, grabY, p.w, p.h);
-      onChange({ ...p, page: r.page, cx: r.cx, cy: r.cy });
-    });
+    beginMove(p, e.clientX, e.clientY, toPoint, resolveMove, onChange);
   };
 
   const onResizeStart = (e: React.PointerEvent, sx: number, sy: number) => {
@@ -88,12 +82,7 @@ export function PlacementBox({
   const onRotateStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     onSelect();
-    beginDrag((ev) => {
-      const P = toPoint(ev.clientX, ev.clientY);
-      let deg = (Math.atan2(P.y - p.cy, P.x - p.cx) * 180) / Math.PI + 90;
-      deg = ((deg % 360) + 360) % 360;
-      onChange({ ...p, rotation: deg });
-    });
+    beginRotate(p, toPoint, onChange);
   };
 
   const left = (p.cx - p.w / 2) * scale;
@@ -126,33 +115,11 @@ export function PlacementBox({
         className="pointer-events-none select-none"
       />
       {selected && (
-        <>
-          {CORNERS.map((c, i) => (
-            <div
-              key={i}
-              onPointerDown={(e) => onResizeStart(e, c.sx, c.sy)}
-              style={{ position: "absolute", ...c.pos, cursor: c.cursor, touchAction: "none" }}
-              className="h-3 w-3 rounded-full border border-blue-500 bg-white"
-            />
-          ))}
-          <div
-            onPointerDown={onRotateStart}
-            style={{ position: "absolute", left: "50%", top: -30, transform: "translateX(-50%)", touchAction: "none" }}
-            className="flex h-6 w-6 cursor-grab items-center justify-center rounded-full border border-blue-500 bg-white text-xs text-blue-600"
-            title="Rotate"
-          >
-            ⟳
-          </div>
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={onDelete}
-            style={{ position: "absolute", right: -10, top: -10 }}
-            className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white"
-            title="Remove"
-          >
-            ×
-          </button>
-        </>
+        <SelectionHandles
+          onResizeStart={onResizeStart}
+          onRotateStart={onRotateStart}
+          onDelete={onDelete}
+        />
       )}
     </div>
   );

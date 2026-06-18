@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, ApiError } from "../api/client";
+import { api, errMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { AdminUser } from "../api/types";
 import { Button, Card, ErrorText, Field, Input, Spinner } from "../components/ui";
@@ -24,7 +24,7 @@ export function AdminPage() {
       const res = await api.get<{ users: AdminUser[] }>("/admin/users");
       setUsers(res.users ?? []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.failedLoad"));
+      setError(errMessage(err, t("common.failedLoad")));
     }
   };
 
@@ -43,7 +43,7 @@ export function AdminPage() {
       setIsAdmin(false);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("admin.createFailed"));
+      setError(errMessage(err, t("admin.createFailed")));
     } finally {
       setBusy(false);
     }
@@ -55,7 +55,7 @@ export function AdminPage() {
       await api.post(`/admin/users/${u.id}/status`, { status });
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("account.updateFailed"));
+      setError(errMessage(err, t("account.updateFailed")));
     }
   };
 
@@ -77,7 +77,7 @@ export function AdminPage() {
       await api.post(`/admin/users/${u.id}/reset`, { tempPassword: tmp });
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("admin.resetFailed"));
+      setError(errMessage(err, t("admin.resetFailed")));
     }
   };
 
@@ -94,7 +94,7 @@ export function AdminPage() {
       await api.del(`/admin/users/${u.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
+      setError(errMessage(err, t("common.deleteFailed")));
     }
   };
 

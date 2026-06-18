@@ -342,32 +342,27 @@ func (s *Store) HardDeleteItem(ctx context.Context, userID, kind, id string) ([]
 
 // EmptyTrash permanently removes every trashed item for a user, returning blob paths.
 func (s *Store) EmptyTrash(ctx context.Context, userID string) ([]string, error) {
-	items, err := s.ListTrash(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	var paths []string
-	for _, it := range items {
-		p, err := s.HardDeleteItem(ctx, userID, it.Kind, it.ID)
-		if err != nil && err != ErrNotFound {
-			return nil, err
-		}
-		paths = append(paths, p...)
-	}
-	return paths, nil
+	return s.purgeTrashed(ctx, "user_id=? AND deleted_at IS NOT NULL", userID)
 }
 
 // PurgeExpired permanently removes items trashed before cutoff (across all users) and
 // returns their blob paths so the caller can delete the encrypted files.
 func (s *Store) PurgeExpired(ctx context.Context, cutoff time.Time) ([]string, error) {
-	c := cutoff.Unix()
+	return s.purgeTrashed(ctx, "deleted_at IS NOT NULL AND deleted_at < ?", cutoff.Unix())
+}
+
+// purgeTrashed permanently deletes the content rows matching where (a trusted, constant
+// predicate referencing only columns common to all three content tables) and returns the
+// blob paths removed. Trashed documents cascade to all their exports regardless of the
+// exports' own state. The deletes are set-based: a fixed number of statements regardless of
+// how many rows match.
+func (s *Store) purgeTrashed(ctx context.Context, where string, arg any) ([]string, error) {
 	var paths []string
 
 	// Documents first, cascading their exports regardless of the exports' state.
 	type doc struct{ id, blob string }
 	var docs []doc
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, blob_path FROM documents WHERE deleted_at IS NOT NULL AND deleted_at < ?`, c)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, blob_path FROM documents WHERE `+where, arg)
 	if err != nil {
 		return nil, err
 	}
@@ -394,20 +389,17 @@ func (s *Store) PurgeExpired(ctx context.Context, cutoff time.Time) ([]string, e
 		paths = append(paths, exp...)
 		paths = append(paths, d.blob)
 	}
-	if _, err := s.db.ExecContext(ctx,
-		`DELETE FROM documents WHERE deleted_at IS NOT NULL AND deleted_at < ?`, c); err != nil {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM documents WHERE `+where, arg); err != nil {
 		return nil, err
 	}
 
 	// Standalone trashed signatures and exports.
 	for _, table := range []string{"signatures", "exports"} {
-		p, err := s.collectStrings(ctx,
-			`SELECT blob_path FROM `+table+` WHERE deleted_at IS NOT NULL AND deleted_at < ?`, c)
+		p, err := s.collectStrings(ctx, `SELECT blob_path FROM `+table+` WHERE `+where, arg)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := s.db.ExecContext(ctx,
-			`DELETE FROM `+table+` WHERE deleted_at IS NOT NULL AND deleted_at < ?`, c); err != nil {
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM `+table+` WHERE `+where, arg); err != nil {
 			return nil, err
 		}
 		paths = append(paths, p...)

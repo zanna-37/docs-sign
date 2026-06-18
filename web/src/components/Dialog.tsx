@@ -10,15 +10,12 @@ import { Button, Input, Modal } from "./ui";
 
 interface ConfirmOpts {
   title: string;
-  message?: string;
   confirmLabel?: string;
   danger?: boolean;
 }
 interface PromptOpts {
   title: string;
-  message?: string;
   defaultValue?: string;
-  placeholder?: string;
   confirmLabel?: string;
 }
 
@@ -74,9 +71,6 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         >
           {active.type === "confirm" ? (
             <div className="space-y-5">
-              {active.opts.message && (
-                <p className="text-sm text-gray-600">{active.opts.message}</p>
-              )}
               <div className="flex justify-end gap-2">
                 <Button variant="secondary" onClick={() => settle(false)}>
                   {t("common.cancel")}
@@ -97,13 +91,9 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                 settle(value);
               }}
             >
-              {active.opts.message && (
-                <p className="text-sm text-gray-600">{active.opts.message}</p>
-              )}
               <Input
                 autoFocus
                 value={value}
-                placeholder={active.opts.placeholder}
                 onChange={(e) => setValue(e.target.value)}
               />
               <div className="flex justify-end gap-2">

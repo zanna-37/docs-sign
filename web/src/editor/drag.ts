@@ -49,6 +49,54 @@ export function beginDrag(onMove: (e: PointerEvent) => void) {
   window.addEventListener("pointerup", up);
 }
 
+// ToPoint maps a client (screen) position to this page's coordinate space (PDF points).
+export type ToPoint = (clientX: number, clientY: number) => { x: number; y: number };
+
+// BoxGeom is the position/orientation that the move and rotate gestures read and write; any
+// editor box (signature placement or text box) satisfies it.
+export interface BoxGeom {
+  page: number;
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+  rotation: number;
+}
+
+// beginMove drags a box across the page (and between pages), writing the resolved page and
+// clamped center back through onChange for the duration of the gesture.
+export function beginMove<T extends BoxGeom>(
+  box: T,
+  startClientX: number,
+  startClientY: number,
+  toPoint: ToPoint,
+  resolveMove: ResolveMove,
+  onChange: (next: T) => void,
+) {
+  // Grab offset from the pointer to the box center (in this page's points).
+  const start = toPoint(startClientX, startClientY);
+  const grabX = box.cx - start.x;
+  const grabY = box.cy - start.y;
+  beginDrag((ev) => {
+    const r = resolveMove(ev.clientX, ev.clientY, grabX, grabY, box.w, box.h);
+    onChange({ ...box, page: r.page, cx: r.cx, cy: r.cy });
+  });
+}
+
+// beginRotate spins a box about its center to follow the pointer for the gesture's duration.
+export function beginRotate<T extends BoxGeom>(
+  box: T,
+  toPoint: ToPoint,
+  onChange: (next: T) => void,
+) {
+  beginDrag((ev) => {
+    const P = toPoint(ev.clientX, ev.clientY);
+    let deg = (Math.atan2(P.y - box.cy, P.x - box.cx) * 180) / Math.PI + 90;
+    deg = ((deg % 360) + 360) % 360;
+    onChange({ ...box, rotation: deg });
+  });
+}
+
 export interface Corner {
   sx: 1 | -1;
   sy: 1 | -1;

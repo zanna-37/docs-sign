@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, ApiError } from "../api/client";
+import { api, errMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { validateNewPassword } from "../lib/validation";
 import { AuthShell } from "../components/AuthShell";
 import { RecoveryCodeDialog } from "../components/RecoveryCodeDialog";
 import { Button, ErrorText, Field, Input } from "../components/ui";
@@ -19,12 +20,9 @@ export function SetupPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (password.length < 8) {
-      setError(t("common.passwordTooShort"));
-      return;
-    }
-    if (password !== confirm) {
-      setError(t("common.passwordsDontMatch"));
+    const invalid = validateNewPassword(password, confirm);
+    if (invalid) {
+      setError(t(invalid));
       return;
     }
     setBusy(true);
@@ -35,7 +33,7 @@ export function SetupPage() {
       });
       setRecoveryCode(res.recoveryCode);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("setup.failed"));
+      setError(errMessage(err, t("setup.failed")));
     } finally {
       setBusy(false);
     }

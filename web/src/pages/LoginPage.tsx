@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { api, ApiError } from "../api/client";
+import { api, errMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { User } from "../api/types";
 import { AuthShell } from "../components/AuthShell";
@@ -26,7 +26,7 @@ export function LoginPage() {
       });
       setUser(res.user);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("login.failed"));
+      setError(errMessage(err, t("login.failed")));
       setBusy(false);
     }
   };

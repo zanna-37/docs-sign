@@ -128,7 +128,6 @@ const it: Dict = {
     needPlacement: "Aggiungi prima almeno una firma o una casella di testo.",
     text: {
       default: "Testo",
-      placeholder: "Scrivi il testo…",
       hint: "Fai doppio clic sulla casella nella pagina per modificarne il testo.",
       font: "Carattere",
       size: "Dimensione",

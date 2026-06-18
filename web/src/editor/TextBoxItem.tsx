@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { beginDrag, CORNERS, rotate, type ResolveMove } from "./drag";
+import { beginDrag, beginMove, beginRotate, rotate, type ResolveMove } from "./drag";
+import { SelectionHandles } from "./SelectionHandles";
 import { cssFamily, drawText, LINE_HEIGHT, refit, TEXT_PAD, type TextBox } from "./text";
 
 // TextDisplay renders the text on a canvas using the same routine as the export, so the
@@ -71,13 +72,7 @@ export function TextBoxItem({
   const onMoveStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     onSelect();
-    const start = toPoint(e.clientX, e.clientY);
-    const grabX = b.cx - start.x;
-    const grabY = b.cy - start.y;
-    beginDrag((ev) => {
-      const r = resolveMove(ev.clientX, ev.clientY, grabX, grabY, b.w, b.h);
-      onChange({ ...b, page: r.page, cx: r.cx, cy: r.cy });
-    });
+    beginMove(b, e.clientX, e.clientY, toPoint, resolveMove, onChange);
   };
 
   const onResizeStart = (e: React.PointerEvent, sx: number, sy: number) => {
@@ -113,12 +108,7 @@ export function TextBoxItem({
   const onRotateStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     onSelect();
-    beginDrag((ev) => {
-      const P = toPoint(ev.clientX, ev.clientY);
-      let deg = (Math.atan2(P.y - b.cy, P.x - b.cx) * 180) / Math.PI + 90;
-      deg = ((deg % 360) + 360) % 360;
-      onChange({ ...b, rotation: deg });
-    });
+    beginRotate(b, toPoint, onChange);
   };
 
   const left = (b.cx - b.w / 2) * scale;
@@ -194,32 +184,11 @@ export function TextBoxItem({
       )}
 
       {selected && !editing && (
-        <>
-          {CORNERS.map((c, i) => (
-            <div
-              key={i}
-              onPointerDown={(e) => onResizeStart(e, c.sx, c.sy)}
-              style={{ position: "absolute", ...c.pos, cursor: c.cursor, touchAction: "none" }}
-              className="h-3 w-3 rounded-full border border-blue-500 bg-white"
-            />
-          ))}
-          <div
-            onPointerDown={onRotateStart}
-            style={{ position: "absolute", left: "50%", top: -30, transform: "translateX(-50%)", touchAction: "none" }}
-            className="flex h-6 w-6 cursor-grab items-center justify-center rounded-full border border-blue-500 bg-white text-xs text-blue-600"
-            title="Rotate"
-          >
-            ⟳
-          </div>
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={onDelete}
-            style={{ position: "absolute", right: -10, top: -10 }}
-            className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white"
-          >
-            ×
-          </button>
-        </>
+        <SelectionHandles
+          onResizeStart={onResizeStart}
+          onRotateStart={onRotateStart}
+          onDelete={onDelete}
+        />
       )}
     </div>
   );

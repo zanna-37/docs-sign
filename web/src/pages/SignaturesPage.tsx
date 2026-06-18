@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, ApiError } from "../api/client";
+import { api, errMessage } from "../api/client";
 import type { Signature } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { SignatureImage } from "../components/SignatureImage";
@@ -8,14 +8,9 @@ import { Dropzone } from "../components/Dropzone";
 import { useDialog } from "../components/Dialog";
 import { TrashIcon } from "../components/icons";
 import { formatBytes, formatDate } from "../lib/format";
+import { checkerBackground } from "../lib/checker";
 
-const checker: React.CSSProperties = {
-  backgroundColor: "#fff",
-  backgroundImage:
-    "linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%)",
-  backgroundSize: "16px 16px",
-  backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
-};
+const checker = checkerBackground(16);
 
 export function SignaturesPage() {
   const { t } = useTranslation();
@@ -30,7 +25,7 @@ export function SignaturesPage() {
       const res = await api.get<{ signatures: Signature[] }>("/signatures");
       setItems(res.signatures ?? []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.failedLoad"));
+      setError(errMessage(err, t("common.failedLoad")));
     }
   };
 
@@ -52,7 +47,7 @@ export function SignaturesPage() {
       }
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.uploadFailed"));
+      setError(errMessage(err, t("common.uploadFailed")));
     } finally {
       setBusy(false);
     }
@@ -75,7 +70,7 @@ export function SignaturesPage() {
       await api.patch(`/signatures/${s.id}`, { name });
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.renameFailed"));
+      setError(errMessage(err, t("common.renameFailed")));
     }
   };
 
@@ -92,7 +87,7 @@ export function SignaturesPage() {
       await api.del(`/signatures/${s.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
+      setError(errMessage(err, t("common.deleteFailed")));
     }
   };
 

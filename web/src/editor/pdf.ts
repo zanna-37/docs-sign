@@ -27,17 +27,3 @@ export async function loadPdf(
   // destroy() lives on the loading task and tears down the worker + document.
   return { doc, pages, destroy: () => void task.destroy() };
 }
-
-export async function renderPageToCanvas(
-  doc: PDFDocumentProxy,
-  pageNumber1: number,
-  scale: number,
-  canvas: HTMLCanvasElement,
-): Promise<void> {
-  const page = await doc.getPage(pageNumber1);
-  const vp = page.getViewport({ scale });
-  canvas.width = Math.floor(vp.width);
-  canvas.height = Math.floor(vp.height);
-  await page.render({ canvas, viewport: vp }).promise;
-  page.cleanup();
-}

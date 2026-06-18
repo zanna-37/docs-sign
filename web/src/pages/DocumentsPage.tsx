@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { api, ApiError } from "../api/client";
+import { api, errMessage } from "../api/client";
 import type { DocumentItem, ExportItem } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { Dropzone } from "../components/Dropzone";
 import { useDialog } from "../components/Dialog";
-import { TrashIcon } from "../components/icons";
+import { ChevronIcon, TrashIcon } from "../components/icons";
 import { formatBytes, formatDate } from "../lib/format";
 
 const pdfName = (name: string) => (/\.pdf$/i.test(name) ? name : `${name}.pdf`);
@@ -31,7 +31,7 @@ export function DocumentsPage() {
       setItems(docs.documents ?? []);
       setExports(exp.exports ?? []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.failedLoad"));
+      setError(errMessage(err, t("common.failedLoad")));
     }
   };
 
@@ -39,8 +39,13 @@ export function DocumentsPage() {
     void reload();
   }, []);
 
-  const exportsFor = (docId: string) =>
-    exports.filter((e) => e.documentId === docId);
+  const exportsByDoc = useMemo(() => {
+    const m: Record<string, ExportItem[]> = {};
+    for (const e of exports) {
+      if (e.documentId) (m[e.documentId] ??= []).push(e);
+    }
+    return m;
+  }, [exports]);
 
   const uploadFiles = async (files: File[]) => {
     setError("");
@@ -57,7 +62,7 @@ export function DocumentsPage() {
       }
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.uploadFailed"));
+      setError(errMessage(err, t("common.uploadFailed")));
     } finally {
       setBusy(false);
     }
@@ -80,7 +85,7 @@ export function DocumentsPage() {
       await api.patch(`/documents/${d.id}`, { name });
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.renameFailed"));
+      setError(errMessage(err, t("common.renameFailed")));
     }
   };
 
@@ -97,7 +102,7 @@ export function DocumentsPage() {
       await api.del(`/documents/${d.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
+      setError(errMessage(err, t("common.deleteFailed")));
     }
   };
 
@@ -114,7 +119,7 @@ export function DocumentsPage() {
       await api.del(`/exports/${x.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
+      setError(errMessage(err, t("common.deleteFailed")));
     }
   };
 
@@ -152,7 +157,7 @@ export function DocumentsPage() {
         ) : (
           <Card className="divide-y divide-gray-100">
             {items.map((d) => {
-              const docExports = exportsFor(d.id);
+              const docExports = exportsByDoc[d.id] ?? [];
               const isOpen = expanded[d.id];
               return (
                 <div key={d.id}>
@@ -290,23 +295,6 @@ export function DocumentsPage() {
         )}
       </div>
     </Dropzone>
-  );
-}
-
-function ChevronIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
   );
 }
 

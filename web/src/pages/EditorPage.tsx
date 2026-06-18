@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { api, ApiError } from "../api/client";
+import { api, errMessage } from "../api/client";
 import type {
   DocumentItem,
   ExportItem,
@@ -11,6 +11,7 @@ import type {
 } from "../api/types";
 import { loadPdf, type PageSize } from "../editor/pdf";
 import { clampCenter, type ResolveMove } from "../editor/drag";
+import { checkerBackground } from "../lib/checker";
 import { fetchArrayBuffer } from "../lib/blobUrls";
 import { useSignatureBitmaps } from "../lib/signatureBitmaps";
 import { uid } from "../lib/uid";
@@ -30,13 +31,7 @@ import { Button, ErrorText, Modal, Spinner } from "../components/ui";
 const TARGET_WIDTH = 720;
 const EXPORT_PX_PER_PT = 3; // ~216 DPI text rasterization for crisp output
 
-const checkerStyle: React.CSSProperties = {
-  backgroundColor: "#fff",
-  backgroundImage:
-    "linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%)",
-  backgroundSize: "12px 12px",
-  backgroundPosition: "0 0,0 6px,6px -6px,-6px 0",
-};
+const checkerStyle = checkerBackground(12);
 
 export function EditorPage() {
   const { id = "" } = useParams();
@@ -96,7 +91,7 @@ export function EditorPage() {
         setScale(Math.min(2, Math.max(0.35, target / maxW)));
       } catch (err) {
         if (active)
-          setError(err instanceof ApiError ? err.message : t("editor.openFailed"));
+          setError(errMessage(err, t("editor.openFailed")));
       } finally {
         if (active) setLoading(false);
       }
@@ -312,7 +307,7 @@ export function EditorPage() {
       setConfirmExport(false);
       setNotice(t("editor.savedNotice"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("editor.exportFailed"));
+      setError(errMessage(err, t("editor.exportFailed")));
     } finally {
       setExporting(false);
     }

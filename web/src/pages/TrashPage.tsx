@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, ApiError } from "../api/client";
+import { api, errMessage } from "../api/client";
 import type { TrashItem } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { useDialog } from "../components/Dialog";
 import { formatBytes, formatDate } from "../lib/format";
+
+const KIND_LABEL_KEYS: Record<TrashItem["kind"], string> = {
+  signature: "trash.kindSignature",
+  document: "trash.kindDocument",
+  export: "trash.kindExport",
+};
 
 export function TrashPage() {
   const { t } = useTranslation();
@@ -13,14 +19,7 @@ export function TrashPage() {
   const [retentionDays, setRetentionDays] = useState(30);
   const [error, setError] = useState("");
 
-  const kindLabel = (kind: TrashItem["kind"]) =>
-    t(
-      kind === "signature"
-        ? "trash.kindSignature"
-        : kind === "document"
-          ? "trash.kindDocument"
-          : "trash.kindExport",
-    );
+  const kindLabel = (kind: TrashItem["kind"]) => t(KIND_LABEL_KEYS[kind]);
 
   const reload = async () => {
     try {
@@ -30,7 +29,7 @@ export function TrashPage() {
       setItems(res.items ?? []);
       setRetentionDays(res.retentionDays || 30);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.failedLoad"));
+      setError(errMessage(err, t("common.failedLoad")));
     }
   };
 
@@ -43,7 +42,7 @@ export function TrashPage() {
       await api.post(`/trash/${it.kind}/${it.id}/restore`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("trash.restoreFailed"));
+      setError(errMessage(err, t("trash.restoreFailed")));
     }
   };
 
@@ -60,7 +59,7 @@ export function TrashPage() {
       await api.del(`/trash/${it.kind}/${it.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
+      setError(errMessage(err, t("common.deleteFailed")));
     }
   };
 
@@ -77,7 +76,7 @@ export function TrashPage() {
       await api.post("/trash/empty");
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("trash.emptyFailed"));
+      setError(errMessage(err, t("trash.emptyFailed")));
     }
   };
 
