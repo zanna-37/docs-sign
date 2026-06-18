@@ -145,14 +145,33 @@ export function DocumentsPage() {
                       <Button onClick={() => navigate(`/documents/${d.id}/sign`)}>
                         Sign
                       </Button>
-                      <Button
-                        variant="secondary"
+                      <button
                         onClick={() =>
                           setExpanded((m) => ({ ...m, [d.id]: !m[d.id] }))
                         }
+                        aria-expanded={isOpen}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                          isOpen
+                            ? "border-blue-200 bg-blue-50 text-blue-700"
+                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
-                        {isOpen ? "▾" : "▸"} Signed ({docExports.length})
-                      </Button>
+                        <ChevronIcon
+                          className={`h-4 w-4 transition-transform duration-150 ${
+                            isOpen ? "rotate-90" : ""
+                          }`}
+                        />
+                        Signed
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                            docExports.length
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {docExports.length}
+                        </span>
+                      </button>
                       <Button variant="ghost" onClick={() => rename(d)}>
                         Rename
                       </Button>
@@ -163,29 +182,42 @@ export function DocumentsPage() {
                   </div>
 
                   {isOpen && (
-                    <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+                    <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-3">
+                      <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Signed copies
+                      </p>
                       {docExports.length === 0 ? (
-                        <p className="text-sm text-gray-400">
+                        <div className="rounded-lg border border-dashed border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-400">
                           No signed copies yet. Use “Sign” to create one.
-                        </p>
+                        </div>
                       ) : (
                         <ul className="space-y-2">
                           {docExports.map((x) => (
                             <li
                               key={x.id}
-                              className="flex items-center justify-between gap-3"
+                              className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm transition hover:border-gray-300 hover:shadow"
                             >
-                              <div className="min-w-0">
-                                <p className="truncate text-sm text-gray-700">
-                                  {x.name}
-                                </p>
-                                <p className="text-xs text-gray-400">
-                                  {formatBytes(x.byteSize)} ·{" "}
-                                  {formatDate(x.createdAt)}
-                                </p>
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-500">
+                                  <PdfIcon />
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-gray-800">
+                                    {x.name}
+                                  </p>
+                                  <p className="text-xs text-gray-400">
+                                    {x.pageCount} page
+                                    {x.pageCount === 1 ? "" : "s"} ·{" "}
+                                    {formatBytes(x.byteSize)} ·{" "}
+                                    {formatDate(x.createdAt)}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex shrink-0 gap-1">
-                                <a href={`/api/exports/${x.id}/file`}>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <a
+                                  href={`/api/exports/${x.id}/file`}
+                                  download
+                                >
                                   <Button variant="secondary">Download</Button>
                                 </a>
                                 <Button
@@ -208,5 +240,40 @@ export function DocumentsPage() {
         )}
       </div>
     </Dropzone>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+    </svg>
   );
 }

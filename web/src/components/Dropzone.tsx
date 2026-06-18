@@ -16,7 +16,7 @@ export function Dropzone({
 
   return (
     <div
-      className="relative"
+      className="relative min-h-[70vh]"
       onDragEnter={(e) => {
         e.preventDefault();
         counter.current += 1;
