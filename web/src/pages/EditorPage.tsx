@@ -9,9 +9,11 @@ import type {
   Signature,
 } from "../api/types";
 import { loadPdf, type PageSize } from "../editor/pdf";
-import { fetchArrayBuffer, useBlobUrlMap } from "../lib/blobUrls";
+import { fetchArrayBuffer } from "../lib/blobUrls";
+import { useSignatureBitmaps } from "../lib/signatureBitmaps";
 import type { Placement, SignatureMeta } from "../editor/types";
 import { PageView } from "../editor/PageView";
+import { SignatureCanvas } from "../components/SignatureCanvas";
 import { Button, ErrorText, Modal, Spinner } from "../components/ui";
 
 const TARGET_WIDTH = 720;
@@ -23,9 +25,6 @@ const checkerStyle: React.CSSProperties = {
   backgroundSize: "12px 12px",
   backgroundPosition: "0 0,0 6px,6px -6px,-6px 0",
 };
-
-const sigImageUrl = (signatureId: string) =>
-  `/api/signatures/${signatureId}/image`;
 
 export function EditorPage() {
   const { id = "" } = useParams();
@@ -116,13 +115,10 @@ export function EditorPage() {
     [signatures],
   );
 
-  // Signature PNGs are fetched into in-memory object URLs (no-store) and shared by both
-  // the palette and the placed boxes, so decrypted images never hit the disk cache.
-  const sigItems = useMemo(
-    () => signatures.map((s) => ({ key: s.id, url: sigImageUrl(s.id) })),
-    [signatures],
-  );
-  const sigUrls = useBlobUrlMap(sigItems);
+  // Signatures are decoded into in-memory bitmaps (no-store fetch, no object URL) and
+  // shared by both the palette and the placed boxes; they render only as canvas pixels.
+  const sigIds = useMemo(() => signatures.map((s) => s.id), [signatures]);
+  const sigBitmaps = useSignatureBitmaps(sigIds);
 
   const onPlace = (pageIndex: number, point: { x: number; y: number }) => {
     if (!armed) return;
@@ -252,10 +248,10 @@ export function EditorPage() {
                     className="flex h-10 w-16 shrink-0 items-center justify-center rounded"
                     style={checkerStyle}
                   >
-                    {sigUrls[s.id] ? (
-                      <img
-                        src={sigUrls[s.id]}
-                        alt={s.name}
+                    {sigBitmaps[s.id] ? (
+                      <SignatureCanvas
+                        bitmap={sigBitmaps[s.id]}
+                        ariaLabel={s.name}
                         className="max-h-full max-w-full object-contain"
                       />
                     ) : (
@@ -286,7 +282,7 @@ export function EditorPage() {
                 scale={scale}
                 placements={placements.filter((p) => p.page === i)}
                 selectedId={selectedId}
-                imageUrl={(sid) => sigUrls[sid] ?? ""}
+                bitmapFor={(sid) => sigBitmaps[sid] ?? null}
                 armed={!!armed}
                 onPlace={onPlace}
                 onSelect={setSelectedId}

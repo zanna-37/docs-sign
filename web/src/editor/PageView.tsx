@@ -11,7 +11,7 @@ interface Props {
   scale: number;
   placements: Placement[];
   selectedId: string | null;
-  imageUrl: (signatureId: string) => string;
+  bitmapFor: (signatureId: string) => ImageBitmap | null;
   armed: boolean;
   onPlace: (pageIndex: number, point: { x: number; y: number }) => void;
   onSelect: (id: string | null) => void;
@@ -26,7 +26,7 @@ export function PageView({
   scale,
   placements,
   selectedId,
-  imageUrl,
+  bitmapFor,
   armed,
   onPlace,
   onSelect,
@@ -95,7 +95,7 @@ export function PageView({
             placement={p}
             scale={scale}
             selected={p.id === selectedId}
-            imageUrl={imageUrl(p.signatureId)}
+            bitmap={bitmapFor(p.signatureId)}
             toPoint={toPoint}
             onSelect={() => onSelect(p.id)}
             onChange={onChange}

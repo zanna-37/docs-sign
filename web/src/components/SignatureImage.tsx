@@ -1,7 +1,8 @@
-import { useBlobUrl } from "../lib/blobUrls";
+import { useSignatureBitmap } from "../lib/signatureBitmaps";
+import { SignatureCanvas } from "./SignatureCanvas";
 
-// SignatureImage renders a signature PNG fetched into an in-memory object URL (no-store),
-// so the decrypted image is never written to the browser's disk cache.
+// SignatureImage renders a signature on a canvas from an in-memory ImageBitmap, so the
+// decrypted image is never an <img>/object-URL resource the browser could cache or save.
 export function SignatureImage({
   id,
   alt,
@@ -11,9 +12,11 @@ export function SignatureImage({
   alt?: string;
   className?: string;
 }) {
-  const url = useBlobUrl(`/api/signatures/${id}/image`);
-  if (!url) {
+  const bitmap = useSignatureBitmap(id);
+  if (!bitmap) {
     return <div className={`animate-pulse bg-gray-100 ${className ?? ""}`} />;
   }
-  return <img src={url} alt={alt ?? ""} className={className} />;
+  return (
+    <SignatureCanvas bitmap={bitmap} className={className} ariaLabel={alt} />
+  );
 }

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { SignatureCanvas } from "../components/SignatureCanvas";
 import type { Placement } from "./types";
 
 interface Corner {
@@ -27,7 +28,7 @@ interface Props {
   placement: Placement;
   scale: number;
   selected: boolean;
-  imageUrl: string;
+  bitmap: ImageBitmap | null;
   toPoint: (clientX: number, clientY: number) => { x: number; y: number };
   onSelect: () => void;
   onChange: (p: Placement) => void;
@@ -52,7 +53,7 @@ export function PlacementBox({
   placement: p,
   scale,
   selected,
-  imageUrl,
+  bitmap,
   toPoint,
   onSelect,
   onChange,
@@ -123,12 +124,10 @@ export function PlacementBox({
           : "cursor-move outline-1 outline-blue-300 hover:outline"
       }
     >
-      <img
-        src={imageUrl}
-        draggable={false}
+      <SignatureCanvas
+        bitmap={bitmap}
         style={{ width: "100%", height: "100%", objectFit: "fill" }}
         className="pointer-events-none select-none"
-        alt=""
       />
       {selected && (
         <>
