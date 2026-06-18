@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { PageSize } from "./pdf";
-import { clampCenter } from "./drag";
+import { clampCenter, type ResolveMove } from "./drag";
 import type { Placement } from "./types";
 import { PlacementBox } from "./PlacementBox";
 import type { TextBox } from "./text";
@@ -20,6 +20,8 @@ interface Props {
   aspectFor: (signatureId: string) => number;
   lockAspect: boolean;
   armed: boolean;
+  resolveMove: ResolveMove;
+  registerOverlay: (el: HTMLDivElement | null) => void;
   onPlace: (pageIndex: number, point: { x: number; y: number }) => void;
   onSelect: (id: string | null) => void;
   onChange: (p: Placement) => void;
@@ -43,6 +45,8 @@ export function PageView({
   aspectFor,
   lockAspect,
   armed,
+  resolveMove,
+  registerOverlay,
   onPlace,
   onSelect,
   onChange,
@@ -89,10 +93,14 @@ export function PageView({
     return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale };
   };
 
-  // Keep a box inside the page on every change (move/resize).
-  const clamp = <T extends { cx: number; cy: number; w: number; h: number }>(
+  // Clamp resize/rotate to this page. Moves are resolved (and clamped) globally by
+  // resolveMove, which may reassign the page — pass those through untouched.
+  const clamp = <
+    T extends { cx: number; cy: number; w: number; h: number; page: number },
+  >(
     o: T,
   ): T => {
+    if (o.page !== pageIndex) return o;
     const c = clampCenter(o.cx, o.cy, o.w, o.h, size.widthPt, size.heightPt);
     return { ...o, cx: c.cx, cy: c.cy };
   };
@@ -112,7 +120,10 @@ export function PageView({
     <div className="relative mx-auto shadow-md ring-1 ring-gray-200" style={{ width: widthPx, height: heightPx }}>
       <canvas ref={canvasRef} className="block bg-white" style={{ width: widthPx, height: heightPx }} />
       <div
-        ref={overlayRef}
+        ref={(el) => {
+          overlayRef.current = el;
+          registerOverlay(el);
+        }}
         className={`absolute inset-0 ${armed ? "cursor-copy" : ""}`}
         onPointerDown={onOverlayPointerDown}
       >
@@ -126,6 +137,7 @@ export function PageView({
             lockAspect={lockAspect}
             aspect={aspectFor(p.signatureId)}
             toPoint={toPoint}
+            resolveMove={resolveMove}
             onSelect={() => onSelect(p.id)}
             onChange={(np) => onChange(clamp(np))}
             onDelete={() => onDelete(p.id)}
@@ -139,6 +151,7 @@ export function PageView({
             selected={b.id === selectedId}
             editing={b.id === editingTextId}
             toPoint={toPoint}
+            resolveMove={resolveMove}
             onSelect={() => onSelect(b.id)}
             onChange={(nb) => onTextChange(clamp(nb))}
             onStartEdit={() => onStartEditText(b.id)}

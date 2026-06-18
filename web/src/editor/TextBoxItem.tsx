@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { beginDrag, CORNERS, rotate } from "./drag";
+import { beginDrag, CORNERS, rotate, type ResolveMove } from "./drag";
 import { cssFamily, drawText, LINE_HEIGHT, refit, TEXT_PAD, type TextBox } from "./text";
 
 // TextDisplay renders the text on a canvas using the same routine as the export, so the
@@ -32,6 +32,7 @@ interface Props {
   selected: boolean;
   editing: boolean;
   toPoint: (clientX: number, clientY: number) => { x: number; y: number };
+  resolveMove: ResolveMove;
   onSelect: () => void;
   onChange: (b: TextBox) => void;
   onStartEdit: () => void;
@@ -45,6 +46,7 @@ export function TextBoxItem({
   selected,
   editing,
   toPoint,
+  resolveMove,
   onSelect,
   onChange,
   onStartEdit,
@@ -66,10 +68,11 @@ export function TextBoxItem({
     e.stopPropagation();
     onSelect();
     const start = toPoint(e.clientX, e.clientY);
-    const c0 = { cx: b.cx, cy: b.cy };
+    const grabX = b.cx - start.x;
+    const grabY = b.cy - start.y;
     beginDrag((ev) => {
-      const cur = toPoint(ev.clientX, ev.clientY);
-      onChange({ ...b, cx: c0.cx + (cur.x - start.x), cy: c0.cy + (cur.y - start.y) });
+      const r = resolveMove(ev.clientX, ev.clientY, grabX, grabY, b.w, b.h);
+      onChange({ ...b, page: r.page, cx: r.cx, cy: r.cy });
     });
   };
 

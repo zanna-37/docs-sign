@@ -1,5 +1,5 @@
 import { SignatureCanvas } from "../components/SignatureCanvas";
-import { beginDrag, CORNERS, rotate } from "./drag";
+import { beginDrag, CORNERS, rotate, type ResolveMove } from "./drag";
 import type { Placement } from "./types";
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   lockAspect: boolean;
   aspect: number; // native signature width/height, used when lockAspect is true
   toPoint: (clientX: number, clientY: number) => { x: number; y: number };
+  resolveMove: ResolveMove;
   onSelect: () => void;
   onChange: (p: Placement) => void;
   onDelete: () => void;
@@ -23,6 +24,7 @@ export function PlacementBox({
   lockAspect,
   aspect,
   toPoint,
+  resolveMove,
   onSelect,
   onChange,
   onDelete,
@@ -30,11 +32,13 @@ export function PlacementBox({
   const onMoveStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     onSelect();
+    // Grab offset from the pointer to the box center (in this page's points).
     const start = toPoint(e.clientX, e.clientY);
-    const c0 = { cx: p.cx, cy: p.cy };
+    const grabX = p.cx - start.x;
+    const grabY = p.cy - start.y;
     beginDrag((ev) => {
-      const cur = toPoint(ev.clientX, ev.clientY);
-      onChange({ ...p, cx: c0.cx + (cur.x - start.x), cy: c0.cy + (cur.y - start.y) });
+      const r = resolveMove(ev.clientX, ev.clientY, grabX, grabY, p.w, p.h);
+      onChange({ ...p, page: r.page, cx: r.cx, cy: r.cy });
     });
   };
 

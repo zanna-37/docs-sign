@@ -1,3 +1,14 @@
+// ResolveMove maps a pointer position (and the grab offset) to a target page and clamped
+// center, so a box can be dragged across pages.
+export type ResolveMove = (
+  clientX: number,
+  clientY: number,
+  grabX: number,
+  grabY: number,
+  w: number,
+  h: number,
+) => { page: number; cx: number; cy: number };
+
 // clampCenter keeps a box's center so its (unrotated) bounds stay within the page. A box
 // larger than the page is centered on that axis.
 export function clampCenter(

@@ -10,7 +10,7 @@ import type {
   Signature,
 } from "../api/types";
 import { loadPdf, type PageSize } from "../editor/pdf";
-import { clampCenter } from "../editor/drag";
+import { clampCenter, type ResolveMove } from "../editor/drag";
 import { fetchArrayBuffer } from "../lib/blobUrls";
 import { useSignatureBitmaps } from "../lib/signatureBitmaps";
 import { uid } from "../lib/uid";
@@ -42,6 +42,7 @@ export function EditorPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const destroyRef = useRef<(() => void) | null>(null);
+  const overlaysRef = useRef<Array<HTMLDivElement | null>>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -146,6 +147,35 @@ export function EditorPage() {
         }),
       );
     }
+  };
+
+  // Map a pointer (during a move) to whichever page it's over, so a box can be dragged
+  // across pages. Returns the target page and clamped center.
+  const resolveMove: ResolveMove = (clientX, clientY, grabX, grabY, w, h) => {
+    let page = 0;
+    let best = Infinity;
+    for (let i = 0; i < pages.length; i++) {
+      const el = overlaysRef.current[i];
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (clientY >= r.top && clientY <= r.bottom) {
+        page = i;
+        break;
+      }
+      const d = clientY < r.top ? r.top - clientY : clientY - r.bottom;
+      if (d < best) {
+        best = d;
+        page = i;
+      }
+    }
+    const el = overlaysRef.current[page];
+    if (!el) return { page, cx: grabX, cy: grabY };
+    const r = el.getBoundingClientRect();
+    const sz = pages[page];
+    const x = (clientX - r.left) / scale + grabX;
+    const y = (clientY - r.top) / scale + grabY;
+    const c = clampCenter(x, y, w, h, sz.widthPt, sz.heightPt);
+    return { page, cx: c.cx, cy: c.cy };
   };
 
   // Selecting something other than the box being edited exits edit mode.
@@ -491,6 +521,10 @@ export function EditorPage() {
                 aspectFor={aspectFor}
                 lockAspect={lockAspect}
                 armed={!!armed || armText}
+                resolveMove={resolveMove}
+                registerOverlay={(el) => {
+                  overlaysRef.current[i] = el;
+                }}
                 onPlace={onPlace}
                 onSelect={select}
                 onChange={(p) =>
