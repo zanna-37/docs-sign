@@ -108,6 +108,8 @@ func (s *Server) Router() http.Handler {
 			r.Use(s.requireAuth)
 			r.Get("/me", s.handleMe)
 			r.Post("/account/password", s.handleChangePassword)
+			r.Post("/account/username", s.handleChangeUsername)
+			r.Post("/account/language", s.handleSetLanguage)
 
 			// Everything below requires the user to have set their own password.
 			r.Group(func(r chi.Router) {
@@ -274,7 +276,13 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 
 // decodeJSON reads a JSON body with a small size limit. It writes a 400 on failure.
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	return decodeJSONLimit(w, r, dst, 1<<20)
+}
+
+// decodeJSONLimit reads a JSON body with an explicit size limit (used by the sign endpoint,
+// which carries inline rasterized text-box images).
+func decodeJSONLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {

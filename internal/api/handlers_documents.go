@@ -2,9 +2,11 @@ package api
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,6 +15,21 @@ import (
 	"docs-sign/internal/pdfproc"
 	"docs-sign/internal/store"
 )
+
+// decodeInlinePNG decodes a base64 PNG (optionally a data: URL) into an image.
+func decodeInlinePNG(data string) (image.Image, error) {
+	if strings.HasPrefix(data, "data:") {
+		if i := strings.IndexByte(data, ','); i >= 0 {
+			data = data[i+1:]
+		}
+	}
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(data))
+	if err != nil {
+		return nil, err
+	}
+	img, _, err := image.Decode(bytes.NewReader(raw))
+	return img, err
+}
 
 var pdfMagic = []byte("%PDF-")
 
@@ -126,6 +143,7 @@ func (s *Server) handleDeleteDocument(w http.ResponseWriter, r *http.Request) {
 
 type placementReq struct {
 	SignatureID string  `json:"signatureId"`
+	ImageData   string  `json:"imageData"` // base64 PNG (optionally a data URL) for text boxes
 	Page        int     `json:"page"`
 	X           float64 `json:"x"`
 	Y           float64 `json:"y"`
@@ -141,11 +159,13 @@ func (s *Server) handleSignDocument(w http.ResponseWriter, r *http.Request) {
 		DPI        int            `json:"dpi"`
 		Placements []placementReq `json:"placements"`
 	}
-	if !decodeJSON(w, r, &req) {
+	// A larger limit than the default JSON body cap: text boxes ship their rasterized
+	// image inline.
+	if !decodeJSONLimit(w, r, &req, s.cfg.MaxUploadBytes) {
 		return
 	}
 	if len(req.Placements) == 0 {
-		writeError(w, http.StatusBadRequest, "at least one signature placement is required")
+		writeError(w, http.StatusBadRequest, "at least one placement is required")
 		return
 	}
 
@@ -164,29 +184,45 @@ func (s *Server) handleSignDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Decode each referenced signature once.
+	// Resolve each placement's image: a stored signature (decoded once and cached), or an
+	// inline rasterized text box sent by the client.
 	sigImages := make(map[string]image.Image)
 	placements := make([]pdfproc.Placement, 0, len(req.Placements))
 	for _, p := range req.Placements {
-		img, ok := sigImages[p.SignatureID]
-		if !ok {
-			sig, err := s.store.GetSignature(r.Context(), sess.UserID, p.SignatureID)
-			if err != nil {
-				writeServiceError(w, err)
-				return
+		var img image.Image
+		switch {
+		case p.SignatureID != "":
+			cached, ok := sigImages[p.SignatureID]
+			if !ok {
+				sig, err := s.store.GetSignature(r.Context(), sess.UserID, p.SignatureID)
+				if err != nil {
+					writeServiceError(w, err)
+					return
+				}
+				pngBytes, err := s.blobs.ReadAll(sig.BlobPath, dek)
+				if err != nil {
+					writeServiceError(w, err)
+					return
+				}
+				decoded, _, err := image.Decode(bytes.NewReader(pngBytes))
+				if err != nil {
+					writeError(w, http.StatusBadRequest, "failed to decode signature image")
+					return
+				}
+				cached = decoded
+				sigImages[p.SignatureID] = cached
 			}
-			pngBytes, err := s.blobs.ReadAll(sig.BlobPath, dek)
+			img = cached
+		case p.ImageData != "":
+			decoded, err := decodeInlinePNG(p.ImageData)
 			if err != nil {
-				writeServiceError(w, err)
-				return
-			}
-			decoded, _, err := image.Decode(bytes.NewReader(pngBytes))
-			if err != nil {
-				writeError(w, http.StatusBadRequest, "failed to decode signature image")
+				writeError(w, http.StatusBadRequest, "invalid text-box image")
 				return
 			}
 			img = decoded
-			sigImages[p.SignatureID] = img
+		default:
+			writeError(w, http.StatusBadRequest, "placement needs a signature or image")
+			return
 		}
 		placements = append(placements, pdfproc.Placement{
 			Page: p.Page, X: p.X, Y: p.Y, W: p.W, H: p.H, RotationDeg: p.Rotation, Image: img,

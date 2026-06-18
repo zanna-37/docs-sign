@@ -22,6 +22,7 @@ type User struct {
 	RecSalt            []byte // may be nil until a recovery code is established
 	RecWrappedDEK      []byte
 	MustChangePassword bool
+	Language           string // "" = follow browser, otherwise a BCP-47 code like "en"/"it"
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
@@ -46,12 +47,12 @@ func (s *Store) CreateUser(ctx context.Context, u *User) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO users (id, username, is_admin, status, kdf_time, kdf_memory, kdf_threads,
 			pw_salt, pw_wrapped_dek, rec_salt, rec_wrapped_dek, must_change_password,
-			created_at, updated_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			created_at, updated_at, language)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		u.ID, u.Username, boolToInt(u.IsAdmin), u.Status,
 		u.KDF.Time, u.KDF.Memory, u.KDF.Threads,
 		u.PwSalt, u.PwWrappedDEK, u.RecSalt, u.RecWrappedDEK, boolToInt(u.MustChangePassword),
-		now, now)
+		now, now, u.Language)
 	return err
 }
 
@@ -61,10 +62,11 @@ func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 		isAdmin, must int
 		created, upd  int64
 	)
+	var language sql.NullString
 	err := row.Scan(&u.ID, &u.Username, &isAdmin, &u.Status,
 		&u.KDF.Time, &u.KDF.Memory, &u.KDF.Threads,
 		&u.PwSalt, &u.PwWrappedDEK, &u.RecSalt, &u.RecWrappedDEK, &must,
-		&created, &upd)
+		&created, &upd, &language)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -73,6 +75,7 @@ func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 	}
 	u.IsAdmin = isAdmin != 0
 	u.MustChangePassword = must != 0
+	u.Language = language.String
 	u.CreatedAt = unixToTime(created)
 	u.UpdatedAt = unixToTime(upd)
 	return &u, nil
@@ -80,7 +83,7 @@ func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 
 const userCols = `id, username, is_admin, status, kdf_time, kdf_memory, kdf_threads,
 	pw_salt, pw_wrapped_dek, rec_salt, rec_wrapped_dek, must_change_password,
-	created_at, updated_at`
+	created_at, updated_at, language`
 
 // GetUserByUsername looks up a user by (case-insensitive) username.
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
@@ -124,6 +127,21 @@ func (s *Store) UpdateUserKeys(ctx context.Context, u *User) error {
 		u.KDF.Time, u.KDF.Memory, u.KDF.Threads,
 		u.PwSalt, u.PwWrappedDEK, u.RecSalt, u.RecWrappedDEK,
 		boolToInt(u.MustChangePassword), now, u.ID)
+	return err
+}
+
+// SetUserLanguage updates a user's preferred language ("" follows the browser).
+func (s *Store) SetUserLanguage(ctx context.Context, id, language string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE users SET language=?, updated_at=? WHERE id=?`,
+		language, time.Now().Unix(), id)
+	return err
+}
+
+// SetUsername changes a user's username. The unique index is enforced separately by the
+// caller (which checks for an existing holder first).
+func (s *Store) SetUsername(ctx context.Context, id, username string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE users SET username=?, updated_at=? WHERE id=?`,
+		username, time.Now().Unix(), id)
 	return err
 }
 

@@ -146,7 +146,7 @@ func (s *Service) Login(ctx context.Context, username, password string) (*sessio
 		return nil, ErrInvalidCredentials
 	}
 	defer crypto.Zero(dek)
-	return s.sessions.Create(u.ID, u.Username, u.IsAdmin, u.MustChangePassword, dek), nil
+	return s.sessions.Create(u.ID, u.Username, u.IsAdmin, u.MustChangePassword, u.Language, dek), nil
 }
 
 // Recover verifies a recovery code, starts a session, and forces a password reset.
@@ -173,7 +173,42 @@ func (s *Service) Recover(ctx context.Context, username, recoveryCode string) (*
 	}
 	defer crypto.Zero(dek)
 	// Force the user to set a fresh password after recovering.
-	return s.sessions.Create(u.ID, u.Username, u.IsAdmin, true, dek), nil
+	return s.sessions.Create(u.ID, u.Username, u.IsAdmin, true, u.Language, dek), nil
+}
+
+// ChangeUsername updates the current user's username after validating and ensuring it is
+// not taken by another account.
+func (s *Service) ChangeUsername(ctx context.Context, sess *session.Session, newUsername string) error {
+	newUsername = strings.TrimSpace(newUsername)
+	if err := validateUsername(newUsername); err != nil {
+		return err
+	}
+	existing, err := s.store.GetUserByUsername(ctx, newUsername)
+	switch {
+	case err == nil && existing.ID != sess.UserID:
+		return ErrUserExists
+	case err != nil && !errors.Is(err, store.ErrNotFound):
+		return err
+	}
+	if err := s.store.SetUsername(ctx, sess.UserID, newUsername); err != nil {
+		return err
+	}
+	s.sessions.SetUsername(sess.Token, newUsername)
+	return nil
+}
+
+// SetLanguage stores the user's preferred language ("" follows the browser).
+func (s *Service) SetLanguage(ctx context.Context, sess *session.Session, language string) error {
+	switch language {
+	case "", "en", "it":
+	default:
+		return ErrInvalidInput
+	}
+	if err := s.store.SetUserLanguage(ctx, sess.UserID, language); err != nil {
+		return err
+	}
+	s.sessions.SetLanguage(sess.Token, language)
+	return nil
 }
 
 // ChangePassword re-wraps the session's DEK under a new password. The DEK itself is

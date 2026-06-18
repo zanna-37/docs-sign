@@ -21,6 +21,7 @@ type Session struct {
 	Username           string
 	IsAdmin            bool
 	MustChangePassword bool
+	Language           string
 	dek                []byte
 	createdAt          time.Time
 	lastSeen           time.Time
@@ -62,7 +63,7 @@ func newToken() string {
 
 // Create starts a new session for a user. The provided dek is copied; the caller may scrub
 // its own copy afterward.
-func (m *Manager) Create(userID, username string, isAdmin, mustChange bool, dek []byte) *Session {
+func (m *Manager) Create(userID, username string, isAdmin, mustChange bool, language string, dek []byte) *Session {
 	dekCopy := make([]byte, len(dek))
 	copy(dekCopy, dek)
 	now := m.now()
@@ -72,6 +73,7 @@ func (m *Manager) Create(userID, username string, isAdmin, mustChange bool, dek 
 		Username:           username,
 		IsAdmin:            isAdmin,
 		MustChangePassword: mustChange,
+		Language:           language,
 		dek:                dekCopy,
 		createdAt:          now,
 		lastSeen:           now,
@@ -111,6 +113,24 @@ func (m *Manager) SetMustChangePassword(token string, v bool) {
 	defer m.mu.Unlock()
 	if s, ok := m.sessions[token]; ok {
 		s.MustChangePassword = v
+	}
+}
+
+// SetUsername updates the username on a live session.
+func (m *Manager) SetUsername(token, username string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if s, ok := m.sessions[token]; ok {
+		s.Username = username
+	}
+}
+
+// SetLanguage updates the language on a live session.
+func (m *Manager) SetLanguage(token, language string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if s, ok := m.sessions[token]; ok {
+		s.Language = language
 	}
 }
 

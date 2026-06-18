@@ -146,17 +146,17 @@ export function DocumentsPage() {
                       <Button onClick={() => navigate(`/documents/${d.id}/sign`)}>
                         Sign
                       </Button>
-                      <Button variant="ghost" onClick={() => rename(d)}>
+                      <Button variant="secondary" onClick={() => rename(d)}>
                         Rename
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         className="px-2"
                         title="Delete"
                         aria-label="Delete"
                         onClick={() => remove(d)}
                       >
-                        <TrashIcon />
+                        <TrashIcon className="h-4 w-4 text-red-600" />
                       </Button>
                       <button
                         onClick={() =>
@@ -223,13 +223,13 @@ export function DocumentsPage() {
                                   <Button variant="secondary">Download</Button>
                                 </a>
                                 <Button
-                                  variant="ghost"
+                                  variant="secondary"
                                   className="px-2"
                                   title="Delete"
                                   aria-label="Delete"
                                   onClick={() => removeExport(x)}
                                 >
-                                  <TrashIcon />
+                                  <TrashIcon className="h-4 w-4 text-red-600" />
                                 </Button>
                               </div>
                             </li>

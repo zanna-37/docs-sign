@@ -57,6 +57,9 @@ func (s *Store) migrate(ctx context.Context) error {
 			return err
 		}
 	}
+	if err := s.ensureColumn(ctx, "users", "language", "TEXT"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -113,7 +116,8 @@ CREATE TABLE IF NOT EXISTS users (
     rec_wrapped_dek       BLOB,
     must_change_password  INTEGER NOT NULL DEFAULT 1,
     created_at            INTEGER NOT NULL,
-    updated_at            INTEGER NOT NULL
+    updated_at            INTEGER NOT NULL,
+    language              TEXT
 );
 
 CREATE TABLE IF NOT EXISTS signatures (

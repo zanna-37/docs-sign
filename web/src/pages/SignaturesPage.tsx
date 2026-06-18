@@ -135,17 +135,17 @@ export function SignaturesPage() {
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <Button variant="ghost" onClick={() => rename(s)}>
+                  <Button variant="secondary" onClick={() => rename(s)}>
                     Rename
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     className="px-2"
                     title="Delete"
                     aria-label="Delete"
                     onClick={() => remove(s)}
                   >
-                    <TrashIcon />
+                    <TrashIcon className="h-4 w-4 text-red-600" />
                   </Button>
                 </div>
               </div>

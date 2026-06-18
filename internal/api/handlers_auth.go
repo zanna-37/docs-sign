@@ -11,10 +11,47 @@ type userDTO struct {
 	Username           string `json:"username"`
 	IsAdmin            bool   `json:"isAdmin"`
 	MustChangePassword bool   `json:"mustChangePassword"`
+	Language           string `json:"language"`
 }
 
 func dtoFromSession(s *session.Session) userDTO {
-	return userDTO{ID: s.UserID, Username: s.Username, IsAdmin: s.IsAdmin, MustChangePassword: s.MustChangePassword}
+	return userDTO{
+		ID:                 s.UserID,
+		Username:           s.Username,
+		IsAdmin:            s.IsAdmin,
+		MustChangePassword: s.MustChangePassword,
+		Language:           s.Language,
+	}
+}
+
+func (s *Server) handleChangeUsername(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	sess := sessionFrom(r.Context())
+	if err := s.auth.ChangeUsername(r.Context(), sess, req.Username); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": dtoFromSession(sess)})
+}
+
+func (s *Server) handleSetLanguage(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Language string `json:"language"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	sess := sessionFrom(r.Context())
+	if err := s.auth.SetLanguage(r.Context(), sess, req.Language); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": dtoFromSession(sess)})
 }
 
 func (s *Server) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
