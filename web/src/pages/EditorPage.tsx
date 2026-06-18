@@ -10,6 +10,7 @@ import type {
   Signature,
 } from "../api/types";
 import { loadPdf, type PageSize } from "../editor/pdf";
+import { clampCenter } from "../editor/drag";
 import { fetchArrayBuffer } from "../lib/blobUrls";
 import { useSignatureBitmaps } from "../lib/signatureBitmaps";
 import { uid } from "../lib/uid";
@@ -154,8 +155,13 @@ export function EditorPage() {
   };
 
   const onPlace = (pageIndex: number, point: { x: number; y: number }) => {
+    const sz = pages[pageIndex];
+    const fit = (cx: number, cy: number, w: number, h: number) =>
+      clampCenter(cx, cy, w, h, sz.widthPt, sz.heightPt);
+
     if (armText) {
-      const tb = newTextBox(uid(), pageIndex, point.x, point.y, t("editor.text.default"));
+      const base = newTextBox(uid(), pageIndex, point.x, point.y, t("editor.text.default"));
+      const tb = { ...base, ...fit(base.cx, base.cy, base.w, base.h) };
       setTextboxes((ts) => [...ts, tb]);
       setSelectedId(tb.id);
       setEditingTextId(tb.id); // start editing the new box immediately
@@ -167,14 +173,16 @@ export function EditorPage() {
     if (!meta) return;
     const w = 180;
     const aspect = meta.width > 0 ? meta.height / meta.width : 0.4;
+    const h = w * aspect;
+    const c = fit(point.x, point.y, w, h);
     const np: Placement = {
       id: uid(),
       signatureId: armed,
       page: pageIndex,
-      cx: point.x,
-      cy: point.y,
+      cx: c.cx,
+      cy: c.cy,
       w,
-      h: w * aspect,
+      h,
       rotation: 0,
     };
     setPlacements((ps) => [...ps, np]);

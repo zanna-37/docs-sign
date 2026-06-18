@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { PageSize } from "./pdf";
+import { clampCenter } from "./drag";
 import type { Placement } from "./types";
 import { PlacementBox } from "./PlacementBox";
 import type { TextBox } from "./text";
@@ -88,6 +89,14 @@ export function PageView({
     return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale };
   };
 
+  // Keep a box inside the page on every change (move/resize).
+  const clamp = <T extends { cx: number; cy: number; w: number; h: number }>(
+    o: T,
+  ): T => {
+    const c = clampCenter(o.cx, o.cy, o.w, o.h, size.widthPt, size.heightPt);
+    return { ...o, cx: c.cx, cy: c.cy };
+  };
+
   const onOverlayPointerDown = (e: React.PointerEvent) => {
     if (armed) {
       onPlace(pageIndex, toPoint(e.clientX, e.clientY));
@@ -118,7 +127,7 @@ export function PageView({
             aspect={aspectFor(p.signatureId)}
             toPoint={toPoint}
             onSelect={() => onSelect(p.id)}
-            onChange={onChange}
+            onChange={(np) => onChange(clamp(np))}
             onDelete={() => onDelete(p.id)}
           />
         ))}
@@ -131,7 +140,7 @@ export function PageView({
             editing={b.id === editingTextId}
             toPoint={toPoint}
             onSelect={() => onSelect(b.id)}
-            onChange={onTextChange}
+            onChange={(nb) => onTextChange(clamp(nb))}
             onStartEdit={() => onStartEditText(b.id)}
             onStopEdit={onStopEditText}
             onDelete={() => onTextDelete(b.id)}

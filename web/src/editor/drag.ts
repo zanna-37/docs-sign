@@ -1,3 +1,21 @@
+// clampCenter keeps a box's center so its (unrotated) bounds stay within the page. A box
+// larger than the page is centered on that axis.
+export function clampCenter(
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  pageW: number,
+  pageH: number,
+): { cx: number; cy: number } {
+  const hw = Math.min(w, pageW) / 2;
+  const hh = Math.min(h, pageH) / 2;
+  return {
+    cx: Math.max(hw, Math.min(pageW - hw, cx)),
+    cy: Math.max(hh, Math.min(pageH - hh, cy)),
+  };
+}
+
 // rotate applies a clockwise rotation (screen coordinates, y-down) by deg degrees.
 export function rotate(x: number, y: number, deg: number) {
   const r = (deg * Math.PI) / 180;
