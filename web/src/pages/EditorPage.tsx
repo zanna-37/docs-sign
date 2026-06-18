@@ -264,8 +264,8 @@ export function EditorPage() {
       };
       if (docName) body.name = t("editor.exportName", { name: docName });
       const exp = await api.post<ExportItem>(`/documents/${id}/sign`, body);
+      savedRef.current = snapshot; // exported -> no longer dirty (before the download)
       triggerDownload(exp.id);
-      savedRef.current = snapshot; // exported -> no longer dirty
       setConfirmExport(false);
       setNotice(t("editor.savedNotice"));
     } catch (err) {
@@ -543,10 +543,13 @@ export function EditorPage() {
   );
 }
 
-// triggerDownload starts a browser download of an export without leaving the page.
+// triggerDownload starts a browser download of an export. The download attribute makes
+// the browser treat it as a download (not a navigation), so it doesn't fire the
+// unsaved-changes beforeunload prompt.
 function triggerDownload(exportId: string) {
   const a = document.createElement("a");
   a.href = `/api/exports/${exportId}/file`;
+  a.download = "";
   a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
