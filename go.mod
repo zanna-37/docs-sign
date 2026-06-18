@@ -3,6 +3,7 @@ module docs-sign
 go 1.26.4
 
 require (
+	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/klippa-app/go-pdfium v1.19.4
 	golang.org/x/crypto v0.53.0
