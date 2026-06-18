@@ -221,9 +221,11 @@ export function EditorPage() {
             rotation: b.rotation,
           })),
       ];
-      const exp = await api.post<ExportItem>(`/documents/${id}/sign`, {
+      const body: { placements: PlacementInput[]; name?: string } = {
         placements: input,
-      });
+      };
+      if (docName) body.name = t("editor.exportName", { name: docName });
+      const exp = await api.post<ExportItem>(`/documents/${id}/sign`, body);
       triggerDownload(exp.id);
       setConfirmExport(false);
       setNotice(t("editor.savedNotice"));

@@ -100,6 +100,7 @@ const en = {
     back: "Back",
     placed: "{{count}} placed",
     export: "Export signed PDF",
+    exportName: "{{name}} (signed)",
     yourSignatures: "Your signatures",
     noSignatures: "No signatures yet.",
     addOne: "Add one",

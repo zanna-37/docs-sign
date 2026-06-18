@@ -103,6 +103,7 @@ const it: Dict = {
     back: "Indietro",
     placed: "{{count}} applicate",
     export: "Esporta PDF firmato",
+    exportName: "{{name}} (firmato)",
     yourSignatures: "Le tue firme",
     noSignatures: "Ancora nessuna firma.",
     addOne: "Aggiungine una",
