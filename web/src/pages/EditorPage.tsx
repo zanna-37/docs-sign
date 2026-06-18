@@ -337,8 +337,9 @@ export function EditorPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-[240px_1fr]">
-        <aside className="space-y-4">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[240px_1fr] md:items-start">
+        <aside className="space-y-4 md:sticky md:top-6 md:max-h-[calc(100vh-3rem)] md:self-start md:overflow-y-auto md:pr-1">
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-medium text-gray-700">
