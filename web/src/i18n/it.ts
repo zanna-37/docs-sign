@@ -122,6 +122,7 @@ const it: Dict = {
     savedNotice: "PDF firmato scaricato e salvato nelle copie firmate del documento.",
     exportFailed: "Esportazione non riuscita.",
     openFailed: "Impossibile aprire il documento.",
+    confirmLeave: "Hai modifiche non salvate. Uscire senza esportare?",
     needPlacement: "Aggiungi prima almeno una firma o una casella di testo.",
     text: {
       default: "Testo",

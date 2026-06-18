@@ -119,6 +119,7 @@ const en = {
     savedNotice: "Signed PDF downloaded and saved to this document’s signed copies.",
     exportFailed: "Export failed.",
     openFailed: "Failed to open document.",
+    confirmLeave: "You have unsaved changes. Leave without exporting?",
     needPlacement: "Add at least one signature or text box first.",
     text: {
       default: "Text",

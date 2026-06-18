@@ -1,17 +1,26 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
 import "./i18n";
 import { AuthProvider } from "./auth/AuthContext";
 import { App } from "./App";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter>
+// A data router (rather than <BrowserRouter>) so useBlocker works for the editor's
+// unsaved-changes guard. App still renders its own <Routes> beneath this catch-all.
+const router = createBrowserRouter([
+  {
+    path: "*",
+    element: (
       <AuthProvider>
         <App />
       </AuthProvider>
-    </BrowserRouter>
+    ),
+  },
+]);
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <RouterProvider router={router} />
   </StrictMode>,
 );

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { api, ApiError } from "../api/client";
@@ -203,6 +203,36 @@ export function EditorPage() {
   const itemCount =
     placements.length + textboxes.filter((b) => b.text.trim()).length;
 
+  // Unsaved-changes guard: dirty when the current layout differs from the last export.
+  const snapshot = useMemo(
+    () => JSON.stringify({ p: placements, t: textboxes }),
+    [placements, textboxes],
+  );
+  const savedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (savedRef.current === null) savedRef.current = snapshot;
+  }, [snapshot]);
+  const dirty = savedRef.current !== null && snapshot !== savedRef.current;
+
+  const blocker = useBlocker(dirty);
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      if (window.confirm(t("editor.confirmLeave"))) blocker.proceed();
+      else blocker.reset();
+    }
+  }, [blocker, t]);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
   const doExport = async () => {
     setExporting(true);
     setError("");
@@ -235,6 +265,7 @@ export function EditorPage() {
       if (docName) body.name = t("editor.exportName", { name: docName });
       const exp = await api.post<ExportItem>(`/documents/${id}/sign`, body);
       triggerDownload(exp.id);
+      savedRef.current = snapshot; // exported -> no longer dirty
       setConfirmExport(false);
       setNotice(t("editor.savedNotice"));
     } catch (err) {
