@@ -8,6 +8,8 @@ import { Dropzone } from "../components/Dropzone";
 import { TrashIcon } from "../components/icons";
 import { formatBytes, formatDate } from "../lib/format";
 
+const pdfName = (name: string) => (/\.pdf$/i.test(name) ? name : `${name}.pdf`);
+
 export function DocumentsPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -148,6 +150,14 @@ export function DocumentsPage() {
                       <Button onClick={() => navigate(`/documents/${d.id}/sign`)}>
                         {t("documents.sign")}
                       </Button>
+                      <a
+                        href={`/api/documents/${d.id}/file`}
+                        download={pdfName(d.name)}
+                      >
+                        <Button variant="secondary">
+                          {t("common.download")}
+                        </Button>
+                      </a>
                       <Button variant="secondary" onClick={() => rename(d)}>
                         {t("common.rename")}
                       </Button>
