@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { User } from "../api/types";
@@ -8,6 +9,7 @@ import { Button, ErrorText, Field, Input } from "../components/ui";
 
 export function LoginPage() {
   const { setUser } = useAuth();
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -24,17 +26,15 @@ export function LoginPage() {
       });
       setUser(res.user);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Could not log in.",
-      );
+      setError(err instanceof ApiError ? err.message : t("login.failed"));
       setBusy(false);
     }
   };
 
   return (
-    <AuthShell title="Log in">
+    <AuthShell title={t("login.title")}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Username">
+        <Field label={t("common.username")}>
           <Input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -43,7 +43,7 @@ export function LoginPage() {
             required
           />
         </Field>
-        <Field label="Password">
+        <Field label={t("common.password")}>
           <Input
             type="password"
             value={password}
@@ -54,13 +54,13 @@ export function LoginPage() {
         </Field>
         <ErrorText>{error}</ErrorText>
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Logging in…" : "Log in"}
+          {busy ? t("login.submitting") : t("login.submit")}
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-gray-500">
-        Forgot your password?{" "}
+        {t("login.forgot")}{" "}
         <Link to="/recover" className="font-medium text-blue-600">
-          Use recovery code
+          {t("login.useRecovery")}
         </Link>
       </p>
     </AuthShell>

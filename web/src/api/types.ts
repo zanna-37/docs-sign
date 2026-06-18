@@ -3,6 +3,7 @@ export interface User {
   username: string;
   isAdmin: boolean;
   mustChangePassword: boolean;
+  language: string;
 }
 
 export interface Signature {
@@ -50,8 +51,10 @@ export interface TrashItem {
 }
 
 // PlacementInput is sent to the server: top-left origin, PDF points, clockwise rotation.
+// Either a stored signatureId or an inline base64 PNG (rasterized text box).
 export interface PlacementInput {
-  signatureId: string;
+  signatureId?: string;
+  imageData?: string;
   page: number;
   x: number;
   y: number;

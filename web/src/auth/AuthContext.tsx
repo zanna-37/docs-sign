@@ -8,6 +8,7 @@ import {
 } from "react";
 import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
+import { applyLanguage } from "../i18n";
 
 interface AuthState {
   loading: boolean;
@@ -61,6 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Apply the signed-in user's language preference (empty follows the browser).
+  useEffect(() => {
+    applyLanguage(user?.language);
+  }, [user]);
 
   return (
     <AuthCtx.Provider

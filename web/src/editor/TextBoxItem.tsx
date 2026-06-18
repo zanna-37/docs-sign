@@ -1,27 +1,20 @@
-import { SignatureCanvas } from "../components/SignatureCanvas";
 import { beginDrag, CORNERS, rotate } from "./drag";
-import type { Placement } from "./types";
+import { cssFamily, LINE_HEIGHT, TEXT_PAD, type TextBox } from "./text";
 
 interface Props {
-  placement: Placement;
+  box: TextBox;
   scale: number;
   selected: boolean;
-  bitmap: ImageBitmap | null;
-  lockAspect: boolean;
-  aspect: number; // native signature width/height, used when lockAspect is true
   toPoint: (clientX: number, clientY: number) => { x: number; y: number };
   onSelect: () => void;
-  onChange: (p: Placement) => void;
+  onChange: (b: TextBox) => void;
   onDelete: () => void;
 }
 
-export function PlacementBox({
-  placement: p,
+export function TextBoxItem({
+  box: b,
   scale,
   selected,
-  bitmap,
-  lockAspect,
-  aspect,
   toPoint,
   onSelect,
   onChange,
@@ -31,37 +24,35 @@ export function PlacementBox({
     e.stopPropagation();
     onSelect();
     const start = toPoint(e.clientX, e.clientY);
-    const c0 = { cx: p.cx, cy: p.cy };
+    const c0 = { cx: b.cx, cy: b.cy };
     beginDrag((ev) => {
       const cur = toPoint(ev.clientX, ev.clientY);
-      onChange({ ...p, cx: c0.cx + (cur.x - start.x), cy: c0.cy + (cur.y - start.y) });
+      onChange({ ...b, cx: c0.cx + (cur.x - start.x), cy: c0.cy + (cur.y - start.y) });
     });
   };
 
+  // Corner resize scales the font uniformly (keeps the text's proportions).
   const onResizeStart = (e: React.PointerEvent, sx: number, sy: number) => {
     e.stopPropagation();
     onSelect();
-    const theta = p.rotation;
-    const w0 = p.w;
-    const h0 = p.h;
-    // The opposite corner stays anchored while dragging this corner.
+    const theta = b.rotation;
+    const w0 = b.w;
+    const h0 = b.h;
+    const fs0 = b.fontSize;
+    const aspect = w0 / h0;
     const aLocal = rotate((-sx * w0) / 2, (-sy * h0) / 2, theta);
-    const A = { x: p.cx + aLocal.x, y: p.cy + aLocal.y };
+    const A = { x: b.cx + aLocal.x, y: b.cy + aLocal.y };
     beginDrag((ev) => {
       const P = toPoint(ev.clientX, ev.clientY);
       const local = rotate(P.x - A.x, P.y - A.y, -theta);
       let w = Math.max(12, local.x * sx);
       let h = Math.max(12, local.y * sy);
-      if (lockAspect && aspect > 0) {
-        // Constrain to the native ratio, driven by whichever axis the user pulls more.
-        if (w / aspect >= h) {
-          h = w / aspect;
-        } else {
-          w = h * aspect;
-        }
-      }
+      if (w / aspect >= h) h = w / aspect;
+      else w = h * aspect;
+      const factor = w / w0;
+      const fontSize = Math.max(6, fs0 * factor);
       const half = rotate((sx * w) / 2, (sy * h) / 2, theta);
-      onChange({ ...p, w, h, cx: A.x + half.x, cy: A.y + half.y });
+      onChange({ ...b, w, h, fontSize, cx: A.x + half.x, cy: A.y + half.y });
     });
   };
 
@@ -70,16 +61,16 @@ export function PlacementBox({
     onSelect();
     beginDrag((ev) => {
       const P = toPoint(ev.clientX, ev.clientY);
-      let deg = (Math.atan2(P.y - p.cy, P.x - p.cx) * 180) / Math.PI + 90;
+      let deg = (Math.atan2(P.y - b.cy, P.x - b.cx) * 180) / Math.PI + 90;
       deg = ((deg % 360) + 360) % 360;
-      onChange({ ...p, rotation: deg });
+      onChange({ ...b, rotation: deg });
     });
   };
 
-  const left = (p.cx - p.w / 2) * scale;
-  const top = (p.cy - p.h / 2) * scale;
-  const width = p.w * scale;
-  const height = p.h * scale;
+  const left = (b.cx - b.w / 2) * scale;
+  const top = (b.cy - b.h / 2) * scale;
+  const width = b.w * scale;
+  const height = b.h * scale;
 
   return (
     <div
@@ -89,7 +80,7 @@ export function PlacementBox({
         top,
         width,
         height,
-        transform: `rotate(${p.rotation}deg)`,
+        transform: `rotate(${b.rotation}deg)`,
         transformOrigin: "center center",
         touchAction: "none",
       }}
@@ -97,14 +88,27 @@ export function PlacementBox({
       className={
         selected
           ? "cursor-move outline outline-2 outline-blue-500"
-          : "cursor-move outline-1 outline-blue-300 hover:outline"
+          : "cursor-move outline-1 outline-dashed outline-blue-300 hover:outline"
       }
     >
-      <SignatureCanvas
-        bitmap={bitmap}
-        style={{ width: "100%", height: "100%", objectFit: "fill" }}
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          fontFamily: cssFamily(b.family),
+          fontSize: b.fontSize * scale,
+          fontWeight: b.bold ? 700 : 400,
+          color: b.color,
+          lineHeight: LINE_HEIGHT,
+          whiteSpace: "pre",
+          padding: TEXT_PAD * scale,
+          boxSizing: "border-box",
+          overflow: "hidden",
+        }}
         className="pointer-events-none select-none"
-      />
+      >
+        {b.text || " "}
+      </div>
       {selected && (
         <>
           {CORNERS.map((c, i) => (
@@ -128,7 +132,6 @@ export function PlacementBox({
             onClick={onDelete}
             style={{ position: "absolute", right: -10, top: -10 }}
             className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white"
-            title="Remove"
           >
             ×
           </button>

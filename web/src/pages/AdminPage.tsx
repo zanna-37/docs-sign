@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { AdminUser } from "../api/types";
@@ -7,6 +8,7 @@ import { formatDate } from "../lib/format";
 
 export function AdminPage() {
   const { user: me } = useAuth();
+  const { t } = useTranslation();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState("");
 
@@ -20,7 +22,7 @@ export function AdminPage() {
       const res = await api.get<{ users: AdminUser[] }>("/admin/users");
       setUsers(res.users ?? []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load.");
+      setError(err instanceof ApiError ? err.message : t("common.failedLoad"));
     }
   };
 
@@ -39,7 +41,7 @@ export function AdminPage() {
       setIsAdmin(false);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Create failed.");
+      setError(err instanceof ApiError ? err.message : t("admin.createFailed"));
     } finally {
       setBusy(false);
     }
@@ -51,70 +53,57 @@ export function AdminPage() {
       await api.post(`/admin/users/${u.id}/status`, { status });
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed.");
+      setError(err instanceof ApiError ? err.message : t("account.updateFailed"));
     }
   };
 
   const reset = async (u: AdminUser) => {
-    if (
-      !confirm(
-        `Reset "${u.username}"? This PERMANENTLY destroys all of their encrypted documents and signatures, and issues a new temporary password.`,
-      )
-    )
-      return;
-    const tmp = prompt(
-      "Enter a temporary password for the reset account (min 8 chars):",
-    );
+    if (!confirm(t("admin.confirmReset", { name: u.username }))) return;
+    const tmp = prompt(t("admin.resetPrompt"));
     if (!tmp) return;
     try {
       await api.post(`/admin/users/${u.id}/reset`, { tempPassword: tmp });
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Reset failed.");
+      setError(err instanceof ApiError ? err.message : t("admin.resetFailed"));
     }
   };
 
   const remove = async (u: AdminUser) => {
-    if (
-      !confirm(
-        `Delete "${u.username}" and all of their encrypted content? This cannot be undone.`,
-      )
-    )
-      return;
+    if (!confirm(t("admin.confirmDelete", { name: u.username }))) return;
     try {
       await api.del(`/admin/users/${u.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Delete failed.");
+      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Users</h1>
-        <p className="text-sm text-gray-500">
-          Create and manage accounts. New users set their own password (and get a
-          recovery code) on first login.
-        </p>
+        <h1 className="text-xl font-semibold text-gray-900">
+          {t("admin.title")}
+        </h1>
+        <p className="text-sm text-gray-500">{t("admin.subtitle")}</p>
       </div>
 
       <ErrorText>{error}</ErrorText>
 
       <Card className="p-6">
-        <h2 className="mb-4 font-medium text-gray-900">Add user</h2>
+        <h2 className="mb-4 font-medium text-gray-900">{t("admin.addUser")}</h2>
         <form
           onSubmit={create}
           className="grid grid-cols-1 gap-4 sm:grid-cols-2"
         >
-          <Field label="Username">
+          <Field label={t("common.username")}>
             <Input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
             />
           </Field>
-          <Field label="Temporary password">
+          <Field label={t("admin.tempPassword")}>
             <Input
               value={tempPassword}
               onChange={(e) => setTempPassword(e.target.value)}
@@ -127,11 +116,11 @@ export function AdminPage() {
               checked={isAdmin}
               onChange={(e) => setIsAdmin(e.target.checked)}
             />
-            Grant admin privileges
+            {t("admin.grantAdmin")}
           </label>
           <div className="sm:col-span-2">
             <Button type="submit" disabled={busy}>
-              {busy ? "Creating…" : "Create user"}
+              {busy ? t("admin.creating") : t("admin.createUser")}
             </Button>
           </div>
         </form>
@@ -147,43 +136,44 @@ export function AdminPage() {
               className="flex flex-wrap items-center justify-between gap-3 p-4"
             >
               <div className="min-w-0">
-                <p className="flex items-center gap-2 font-medium text-gray-800">
+                <p className="flex flex-wrap items-center gap-2 font-medium text-gray-800">
                   {u.username}
                   {u.isAdmin && (
                     <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">
-                      admin
+                      {t("admin.badgeAdmin")}
                     </span>
                   )}
                   {u.status === "disabled" && (
                     <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">
-                      disabled
+                      {t("admin.badgeDisabled")}
                     </span>
                   )}
                   {u.mustChangePassword && (
                     <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                      pending first login
+                      {t("admin.badgePending")}
                     </span>
                   )}
                 </p>
                 <p className="text-xs text-gray-400">
-                  created {formatDate(u.createdAt)}
+                  {t("admin.created", { date: formatDate(u.createdAt) })}
                 </p>
               </div>
-              {u.id !== me?.id && (
+              {u.id !== me?.id ? (
                 <div className="flex shrink-0 gap-1">
                   <Button variant="ghost" onClick={() => toggleStatus(u)}>
-                    {u.status === "active" ? "Disable" : "Enable"}
+                    {u.status === "active"
+                      ? t("admin.disable")
+                      : t("admin.enable")}
                   </Button>
                   <Button variant="ghost" onClick={() => reset(u)}>
-                    Reset
+                    {t("admin.reset")}
                   </Button>
                   <Button variant="ghost" onClick={() => remove(u)}>
-                    Delete
+                    {t("common.delete")}
                   </Button>
                 </div>
-              )}
-              {u.id === me?.id && (
-                <span className="text-xs text-gray-400">you</span>
+              ) : (
+                <span className="text-xs text-gray-400">{t("admin.you")}</span>
               )}
             </div>
           ))}

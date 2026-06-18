@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button, Modal } from "./ui";
 
 // legacyCopy copies text via a temporary textarea selection; works in insecure contexts.
@@ -29,6 +30,7 @@ export function RecoveryCodeDialog({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useTranslation();
 
   // navigator.clipboard is only available in secure contexts (HTTPS/localhost). Fall back
   // to a textarea + execCommand("copy") so copying works over plain HTTP too.
@@ -52,22 +54,18 @@ export function RecoveryCodeDialog({
   };
 
   return (
-    <Modal open title="Save your recovery code">
+    <Modal open title={t("recoveryDialog.title")}>
       <div className="space-y-4">
-        <p className="text-sm text-gray-600">
-          This is the <strong>only</strong> way to recover your encrypted data if
-          you forget your password. It is shown once and never again. Store it
-          somewhere safe and offline.
-        </p>
+        <p className="text-sm text-gray-600">{t("recoveryDialog.body")}</p>
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center font-mono text-base tracking-wide break-all text-amber-900">
           {code}
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={copy}>
-            {copied ? "Copied!" : "Copy"}
+            {copied ? t("recoveryDialog.copied") : t("recoveryDialog.copy")}
           </Button>
           <Button className="flex-1" onClick={onClose}>
-            I have saved it
+            {t("recoveryDialog.acknowledge")}
           </Button>
         </div>
       </div>

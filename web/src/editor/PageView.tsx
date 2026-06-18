@@ -3,6 +3,8 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { PageSize } from "./pdf";
 import type { Placement } from "./types";
 import { PlacementBox } from "./PlacementBox";
+import type { TextBox } from "./text";
+import { TextBoxItem } from "./TextBoxItem";
 
 interface Props {
   doc: PDFDocumentProxy;
@@ -10,6 +12,7 @@ interface Props {
   size: PageSize;
   scale: number;
   placements: Placement[];
+  textboxes: TextBox[];
   selectedId: string | null;
   bitmapFor: (signatureId: string) => ImageBitmap | null;
   aspectFor: (signatureId: string) => number;
@@ -19,6 +22,8 @@ interface Props {
   onSelect: (id: string | null) => void;
   onChange: (p: Placement) => void;
   onDelete: (id: string) => void;
+  onTextChange: (b: TextBox) => void;
+  onTextDelete: (id: string) => void;
 }
 
 export function PageView({
@@ -27,6 +32,7 @@ export function PageView({
   size,
   scale,
   placements,
+  textboxes,
   selectedId,
   bitmapFor,
   aspectFor,
@@ -36,6 +42,8 @@ export function PageView({
   onSelect,
   onChange,
   onDelete,
+  onTextChange,
+  onTextDelete,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -106,6 +114,18 @@ export function PageView({
             onSelect={() => onSelect(p.id)}
             onChange={onChange}
             onDelete={() => onDelete(p.id)}
+          />
+        ))}
+        {textboxes.map((b) => (
+          <TextBoxItem
+            key={b.id}
+            box={b}
+            scale={scale}
+            selected={b.id === selectedId}
+            toPoint={toPoint}
+            onSelect={() => onSelect(b.id)}
+            onChange={onTextChange}
+            onDelete={() => onTextDelete(b.id)}
           />
         ))}
       </div>

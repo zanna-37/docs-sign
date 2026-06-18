@@ -1,28 +1,79 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import type { User } from "../api/types";
+import { applyLanguage } from "../i18n";
 import { RecoveryCodeDialog } from "../components/RecoveryCodeDialog";
 import { Button, Card, ErrorText, Field, Input } from "../components/ui";
 
+function Notice({ children }: { children: React.ReactNode }) {
+  if (!children) return null;
+  return (
+    <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+      {children}
+    </p>
+  );
+}
+
 export function AccountPage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
+  const { t } = useTranslation();
+
+  const [username, setUsername] = useState(user?.username ?? "");
+  const [usernameNotice, setUsernameNotice] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [pwNotice, setPwNotice] = useState("");
   const [busy, setBusy] = useState(false);
+
   const [recoveryCode, setRecoveryCode] = useState("");
+  const [error, setError] = useState("");
+
+  const changeUsername = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUsernameError("");
+    setUsernameNotice("");
+    try {
+      const res = await api.post<{ user: User }>("/account/username", {
+        username,
+      });
+      setUser(res.user);
+      setUsernameNotice(t("account.usernameUpdated"));
+    } catch (err) {
+      setUsernameError(
+        err instanceof ApiError ? err.message : t("account.updateFailed"),
+      );
+    }
+  };
+
+  const changeLanguage = async (language: string) => {
+    setError("");
+    // Apply immediately for snappy feedback; the server persists it.
+    applyLanguage(language);
+    try {
+      const res = await api.post<{ user: User }>("/account/language", {
+        language,
+      });
+      setUser(res.user);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("account.updateFailed"));
+    }
+  };
 
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setNotice("");
+    setPwError("");
+    setPwNotice("");
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setPwError(t("common.passwordTooShort"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setPwError(t("common.passwordsDontMatch"));
       return;
     }
     setBusy(true);
@@ -30,21 +81,16 @@ export function AccountPage() {
       await api.post("/account/password", { newPassword: password });
       setPassword("");
       setConfirmPassword("");
-      setNotice("Password updated.");
+      setPwNotice(t("account.passwordUpdated"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Update failed.");
+      setPwError(err instanceof ApiError ? err.message : t("account.updateFailed"));
     } finally {
       setBusy(false);
     }
   };
 
   const regenerate = async () => {
-    if (
-      !confirm(
-        "Generate a new recovery code? Your old code will stop working immediately.",
-      )
-    )
-      return;
+    if (!confirm(t("account.confirmRegenerate"))) return;
     setError("");
     try {
       const res = await api.post<{ recoveryCode: string }>(
@@ -52,24 +98,62 @@ export function AccountPage() {
       );
       setRecoveryCode(res.recoveryCode);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed.");
+      setError(err instanceof ApiError ? err.message : t("account.updateFailed"));
     }
   };
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Account</h1>
+        <h1 className="text-xl font-semibold text-gray-900">
+          {t("account.title")}
+        </h1>
         <p className="text-sm text-gray-500">
-          Signed in as <strong>{user?.username}</strong>
-          {user?.isAdmin ? " (admin)" : ""}.
+          {t("account.signedInAs")} <strong>{user?.username}</strong>
+          {user?.isAdmin ? ` (${t("account.admin")})` : ""}.
         </p>
       </div>
 
+      <Card className="space-y-3 p-6">
+        <h2 className="font-medium text-gray-900">{t("account.language")}</h2>
+        <p className="text-sm text-gray-500">{t("account.languageBody")}</p>
+        <select
+          value={user?.language ?? ""}
+          onChange={(e) => void changeLanguage(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        >
+          <option value="">{t("account.langAuto")}</option>
+          <option value="en">{t("account.langEn")}</option>
+          <option value="it">{t("account.langIt")}</option>
+        </select>
+      </Card>
+
       <Card className="space-y-4 p-6">
-        <h2 className="font-medium text-gray-900">Change password</h2>
+        <h2 className="font-medium text-gray-900">
+          {t("account.changeUsername")}
+        </h2>
+        <form onSubmit={changeUsername} className="space-y-4">
+          <Field label={t("common.username")}>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+            />
+          </Field>
+          {usernameError && <ErrorText>{usernameError}</ErrorText>}
+          <Notice>{usernameNotice}</Notice>
+          <Button type="submit" disabled={username === user?.username}>
+            {t("account.updateUsername")}
+          </Button>
+        </form>
+      </Card>
+
+      <Card className="space-y-4 p-6">
+        <h2 className="font-medium text-gray-900">
+          {t("account.changePassword")}
+        </h2>
         <form onSubmit={changePassword} className="space-y-4">
-          <Field label="New password">
+          <Field label={t("common.newPassword")}>
             <Input
               type="password"
               value={password}
@@ -77,7 +161,7 @@ export function AccountPage() {
               autoComplete="new-password"
             />
           </Field>
-          <Field label="Confirm password">
+          <Field label={t("common.confirmPassword")}>
             <Input
               type="password"
               value={confirmPassword}
@@ -85,26 +169,22 @@ export function AccountPage() {
               autoComplete="new-password"
             />
           </Field>
-          {error && <ErrorText>{error}</ErrorText>}
-          {notice && (
-            <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-              {notice}
-            </p>
-          )}
+          {pwError && <ErrorText>{pwError}</ErrorText>}
+          <Notice>{pwNotice}</Notice>
           <Button type="submit" disabled={busy}>
-            {busy ? "Saving…" : "Update password"}
+            {busy ? t("account.saving") : t("account.updatePassword")}
           </Button>
         </form>
       </Card>
 
       <Card className="space-y-3 p-6">
-        <h2 className="font-medium text-gray-900">Recovery code</h2>
-        <p className="text-sm text-gray-500">
-          Generate a fresh one-time recovery code. This invalidates any previous
-          code.
-        </p>
+        <h2 className="font-medium text-gray-900">
+          {t("account.recoveryCode")}
+        </h2>
+        <p className="text-sm text-gray-500">{t("account.recoveryBody")}</p>
+        {error && <ErrorText>{error}</ErrorText>}
         <Button variant="secondary" onClick={regenerate}>
-          Generate new recovery code
+          {t("account.generateRecovery")}
         </Button>
       </Card>
 

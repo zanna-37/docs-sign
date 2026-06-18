@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { DocumentItem, ExportItem } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
@@ -9,6 +10,7 @@ import { formatBytes, formatDate } from "../lib/format";
 
 export function DocumentsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [items, setItems] = useState<DocumentItem[] | null>(null);
   const [exports, setExports] = useState<ExportItem[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -25,7 +27,7 @@ export function DocumentsPage() {
       setItems(docs.documents ?? []);
       setExports(exp.exports ?? []);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load.");
+      setError(err instanceof ApiError ? err.message : t("common.failedLoad"));
     }
   };
 
@@ -44,14 +46,14 @@ export function DocumentsPage() {
         const isPdf =
           file.type === "application/pdf" || /\.pdf$/i.test(file.name);
         if (!isPdf) {
-          setError(`"${file.name}" is not a PDF.`);
+          setError(t("documents.notPdf", { name: file.name }));
           continue;
         }
         await api.upload<DocumentItem>("/documents", file, file.name);
       }
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Upload failed.");
+      setError(err instanceof ApiError ? err.message : t("common.uploadFailed"));
     } finally {
       setBusy(false);
     }
@@ -64,45 +66,45 @@ export function DocumentsPage() {
   };
 
   const rename = async (d: DocumentItem) => {
-    const name = prompt("Rename document", d.name);
+    const name = prompt(t("documents.renamePrompt"), d.name);
     if (!name || name === d.name) return;
     try {
       await api.patch(`/documents/${d.id}`, { name });
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Rename failed.");
+      setError(err instanceof ApiError ? err.message : t("common.renameFailed"));
     }
   };
 
   const remove = async (d: DocumentItem) => {
-    if (!confirm(`Move "${d.name}" and its signed copies to the trash?`)) return;
+    if (!confirm(t("documents.confirmDelete", { name: d.name }))) return;
     try {
       await api.del(`/documents/${d.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Delete failed.");
+      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
     }
   };
 
   const removeExport = async (x: ExportItem) => {
-    if (!confirm(`Move signed copy "${x.name}" to the trash?`)) return;
+    if (!confirm(t("documents.confirmDeleteExport", { name: x.name }))) return;
     try {
       await api.del(`/exports/${x.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Delete failed.");
+      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
     }
   };
 
   return (
-    <Dropzone onFiles={uploadFiles} label="Drop PDF documents to upload">
+    <Dropzone onFiles={uploadFiles} label={t("documents.drop")}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Documents</h1>
-            <p className="text-sm text-gray-500">
-              Upload PDFs, then place signatures and export a flattened copy.
-            </p>
+            <h1 className="text-xl font-semibold text-gray-900">
+              {t("documents.title")}
+            </h1>
+            <p className="text-sm text-gray-500">{t("documents.subtitle")}</p>
           </div>
           <input
             ref={fileRef}
@@ -113,7 +115,7 @@ export function DocumentsPage() {
             onChange={onUpload}
           />
           <Button onClick={() => fileRef.current?.click()} disabled={busy}>
-            {busy ? "Uploading…" : "Upload PDF"}
+            {busy ? t("documents.uploading") : t("documents.upload")}
           </Button>
         </div>
 
@@ -123,7 +125,7 @@ export function DocumentsPage() {
           <Spinner />
         ) : items.length === 0 ? (
           <Card className="p-10 text-center text-sm text-gray-500">
-            No documents yet. Upload a PDF or drag one here to get started.
+            {t("documents.empty")}
           </Card>
         ) : (
           <Card className="divide-y divide-gray-100">
@@ -132,28 +134,28 @@ export function DocumentsPage() {
               const isOpen = expanded[d.id];
               return (
                 <div key={d.id}>
-                  <div className="flex items-center justify-between gap-4 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-4">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-gray-800">
                         {d.name}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {d.pageCount} page{d.pageCount === 1 ? "" : "s"} ·{" "}
+                        {t("documents.page", { count: d.pageCount })} ·{" "}
                         {formatBytes(d.byteSize)} · {formatDate(d.createdAt)}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       <Button onClick={() => navigate(`/documents/${d.id}/sign`)}>
-                        Sign
+                        {t("documents.sign")}
                       </Button>
                       <Button variant="secondary" onClick={() => rename(d)}>
-                        Rename
+                        {t("common.rename")}
                       </Button>
                       <Button
                         variant="secondary"
                         className="px-2"
-                        title="Delete"
-                        aria-label="Delete"
+                        title={t("common.delete")}
+                        aria-label={t("common.delete")}
                         onClick={() => remove(d)}
                       >
                         <TrashIcon className="h-4 w-4 text-red-600" />
@@ -169,7 +171,7 @@ export function DocumentsPage() {
                             : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                       >
-                        Signed
+                        {t("documents.signed")}
                         <span
                           className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                             docExports.length
@@ -191,11 +193,11 @@ export function DocumentsPage() {
                   {isOpen && (
                     <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-3">
                       <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        Signed copies
+                        {t("documents.signedCopies")}
                       </p>
                       {docExports.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-400">
-                          No signed copies yet. Use “Sign” to create one.
+                          {t("documents.noSignedCopies")}
                         </div>
                       ) : (
                         <ul className="space-y-2">
@@ -209,8 +211,7 @@ export function DocumentsPage() {
                                   {x.name}
                                 </p>
                                 <p className="text-xs text-gray-400">
-                                  {x.pageCount} page
-                                  {x.pageCount === 1 ? "" : "s"} ·{" "}
+                                  {t("documents.page", { count: x.pageCount })} ·{" "}
                                   {formatBytes(x.byteSize)} ·{" "}
                                   {formatDate(x.createdAt)}
                                 </p>
@@ -220,13 +221,15 @@ export function DocumentsPage() {
                                   href={`/api/exports/${x.id}/file`}
                                   download
                                 >
-                                  <Button variant="secondary">Download</Button>
+                                  <Button variant="secondary">
+                                    {t("common.download")}
+                                  </Button>
                                 </a>
                                 <Button
                                   variant="secondary"
                                   className="px-2"
-                                  title="Delete"
-                                  aria-label="Delete"
+                                  title={t("common.delete")}
+                                  aria-label={t("common.delete")}
                                   onClick={() => removeExport(x)}
                                 >
                                   <TrashIcon className="h-4 w-4 text-red-600" />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthShell } from "../components/AuthShell";
@@ -8,6 +9,7 @@ import { Button, ErrorText, Field, Input } from "../components/ui";
 // Shown when the session is flagged must-change-password (first login or after recovery).
 export function ForceChangePasswordPage() {
   const { refresh, logout } = useAuth();
+  const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -18,11 +20,11 @@ export function ForceChangePasswordPage() {
     e.preventDefault();
     setError("");
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t("common.passwordTooShort"));
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(t("common.passwordsDontMatch"));
       return;
     }
     setBusy(true);
@@ -37,20 +39,15 @@ export function ForceChangePasswordPage() {
         await refresh();
       }
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Could not set password.",
-      );
+      setError(err instanceof ApiError ? err.message : t("forceChange.failed"));
       setBusy(false);
     }
   };
 
   return (
-    <AuthShell
-      title="Set a new password"
-      subtitle="You must choose a new password before continuing."
-    >
+    <AuthShell title={t("forceChange.title")} subtitle={t("forceChange.subtitle")}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="New password">
+        <Field label={t("common.newPassword")}>
           <Input
             type="password"
             value={password}
@@ -60,7 +57,7 @@ export function ForceChangePasswordPage() {
             required
           />
         </Field>
-        <Field label="Confirm password">
+        <Field label={t("common.confirmPassword")}>
           <Input
             type="password"
             value={confirm}
@@ -71,7 +68,7 @@ export function ForceChangePasswordPage() {
         </Field>
         <ErrorText>{error}</ErrorText>
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Saving…" : "Save password"}
+          {busy ? t("forceChange.submitting") : t("forceChange.submit")}
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-gray-500">
@@ -79,15 +76,12 @@ export function ForceChangePasswordPage() {
           className="font-medium text-gray-500 hover:text-gray-700"
           onClick={() => void logout()}
         >
-          Cancel and log out
+          {t("forceChange.cancelLogout")}
         </button>
       </p>
 
       {recoveryCode && (
-        <RecoveryCodeDialog
-          code={recoveryCode}
-          onClose={() => void refresh()}
-        />
+        <RecoveryCodeDialog code={recoveryCode} onClose={() => void refresh()} />
       )}
     </AuthShell>
   );

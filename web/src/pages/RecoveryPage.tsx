@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { User } from "../api/types";
@@ -8,6 +9,7 @@ import { Button, ErrorText, Field, Input } from "../components/ui";
 
 export function RecoveryPage() {
   const { setUser } = useAuth();
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -22,23 +24,17 @@ export function RecoveryPage() {
         username,
         recoveryCode: code,
       });
-      // The recovery session forces a password reset; App routes there next.
       setUser(res.user);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Recovery failed.",
-      );
+      setError(err instanceof ApiError ? err.message : t("recovery.failed"));
       setBusy(false);
     }
   };
 
   return (
-    <AuthShell
-      title="Recover access"
-      subtitle="Enter your recovery code. You will then set a new password."
-    >
+    <AuthShell title={t("recovery.title")} subtitle={t("recovery.subtitle")}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Username">
+        <Field label={t("common.username")}>
           <Input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -47,7 +43,7 @@ export function RecoveryPage() {
             required
           />
         </Field>
-        <Field label="Recovery code">
+        <Field label={t("recovery.code")}>
           <Input
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -58,12 +54,12 @@ export function RecoveryPage() {
         </Field>
         <ErrorText>{error}</ErrorText>
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Verifying…" : "Recover"}
+          {busy ? t("recovery.submitting") : t("recovery.submit")}
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-gray-500">
         <Link to="/login" className="font-medium text-blue-600">
-          Back to login
+          {t("recovery.back")}
         </Link>
       </p>
     </AuthShell>

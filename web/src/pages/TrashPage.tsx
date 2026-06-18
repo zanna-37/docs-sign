@@ -1,19 +1,24 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { TrashItem } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { formatBytes, formatDate } from "../lib/format";
 
-const kindLabel: Record<TrashItem["kind"], string> = {
-  signature: "Signature",
-  document: "Document",
-  export: "Signed copy",
-};
-
 export function TrashPage() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<TrashItem[] | null>(null);
   const [retentionDays, setRetentionDays] = useState(30);
   const [error, setError] = useState("");
+
+  const kindLabel = (kind: TrashItem["kind"]) =>
+    t(
+      kind === "signature"
+        ? "trash.kindSignature"
+        : kind === "document"
+          ? "trash.kindDocument"
+          : "trash.kindExport",
+    );
 
   const reload = async () => {
     try {
@@ -23,7 +28,7 @@ export function TrashPage() {
       setItems(res.items ?? []);
       setRetentionDays(res.retentionDays || 30);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load.");
+      setError(err instanceof ApiError ? err.message : t("common.failedLoad"));
     }
   };
 
@@ -36,43 +41,44 @@ export function TrashPage() {
       await api.post(`/trash/${it.kind}/${it.id}/restore`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Restore failed.");
+      setError(err instanceof ApiError ? err.message : t("trash.restoreFailed"));
     }
   };
 
   const purge = async (it: TrashItem) => {
-    if (!confirm(`Permanently delete "${it.name}"? This cannot be undone.`)) return;
+    if (!confirm(t("trash.confirmPurge", { name: it.name }))) return;
     try {
       await api.del(`/trash/${it.kind}/${it.id}`);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Delete failed.");
+      setError(err instanceof ApiError ? err.message : t("common.deleteFailed"));
     }
   };
 
   const empty = async () => {
-    if (!confirm("Permanently delete everything in the trash? This cannot be undone.")) return;
+    if (!confirm(t("trash.confirmEmpty"))) return;
     try {
       await api.post("/trash/empty");
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to empty trash.");
+      setError(err instanceof ApiError ? err.message : t("trash.emptyFailed"));
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Trash</h1>
+          <h1 className="text-xl font-semibold text-gray-900">
+            {t("trash.title")}
+          </h1>
           <p className="text-sm text-gray-500">
-            Deleted items are kept for {retentionDays} days, then permanently
-            removed.
+            {t("trash.subtitle", { days: retentionDays })}
           </p>
         </div>
         {items && items.length > 0 && (
           <Button variant="danger" onClick={empty}>
-            Empty trash
+            {t("trash.emptyButton")}
           </Button>
         )}
       </div>
@@ -83,7 +89,7 @@ export function TrashPage() {
         <Spinner />
       ) : items.length === 0 ? (
         <Card className="p-10 text-center text-sm text-gray-500">
-          The trash is empty.
+          {t("trash.empty")}
         </Card>
       ) : (
         <Card className="divide-y divide-gray-100">
@@ -96,20 +102,23 @@ export function TrashPage() {
                 <p className="flex items-center gap-2 font-medium text-gray-800">
                   <span className="truncate">{it.name}</span>
                   <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">
-                    {kindLabel[it.kind]}
+                    {kindLabel(it.kind)}
                   </span>
                 </p>
                 <p className="text-xs text-gray-400">
-                  {formatBytes(it.byteSize)} · deleted {formatDate(it.deletedAt)}{" "}
-                  · auto-deletes {formatDate(it.purgeAt)}
+                  {t("trash.meta", {
+                    size: formatBytes(it.byteSize),
+                    deleted: formatDate(it.deletedAt),
+                    purge: formatDate(it.purgeAt),
+                  })}
                 </p>
               </div>
               <div className="flex shrink-0 gap-1">
                 <Button variant="secondary" onClick={() => restore(it)}>
-                  Restore
+                  {t("common.restore")}
                 </Button>
                 <Button variant="ghost" onClick={() => purge(it)}>
-                  Delete now
+                  {t("common.deleteNow")}
                 </Button>
               </div>
             </div>

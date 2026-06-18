@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthShell } from "../components/AuthShell";
@@ -7,6 +8,7 @@ import { Button, ErrorText, Field, Input } from "../components/ui";
 
 export function SetupPage() {
   const { refresh } = useAuth();
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -18,11 +20,11 @@ export function SetupPage() {
     e.preventDefault();
     setError("");
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t("common.passwordTooShort"));
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(t("common.passwordsDontMatch"));
       return;
     }
     setBusy(true);
@@ -33,19 +35,16 @@ export function SetupPage() {
       });
       setRecoveryCode(res.recoveryCode);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Setup failed.");
+      setError(err instanceof ApiError ? err.message : t("setup.failed"));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <AuthShell
-      title="Create the admin account"
-      subtitle="This is the first run. The admin can add more users later."
-    >
+    <AuthShell title={t("setup.title")} subtitle={t("setup.subtitle")}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Username">
+        <Field label={t("common.username")}>
           <Input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -54,7 +53,7 @@ export function SetupPage() {
             required
           />
         </Field>
-        <Field label="Password">
+        <Field label={t("common.password")}>
           <Input
             type="password"
             value={password}
@@ -63,7 +62,7 @@ export function SetupPage() {
             required
           />
         </Field>
-        <Field label="Confirm password">
+        <Field label={t("common.confirmPassword")}>
           <Input
             type="password"
             value={confirm}
@@ -74,15 +73,12 @@ export function SetupPage() {
         </Field>
         <ErrorText>{error}</ErrorText>
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Creating…" : "Create account"}
+          {busy ? t("setup.creating") : t("setup.create")}
         </Button>
       </form>
 
       {recoveryCode && (
-        <RecoveryCodeDialog
-          code={recoveryCode}
-          onClose={() => void refresh()}
-        />
+        <RecoveryCodeDialog code={recoveryCode} onClose={() => void refresh()} />
       )}
     </AuthShell>
   );
