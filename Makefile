@@ -17,6 +17,7 @@ deps: ## Install frontend deps and tidy go modules
 
 .PHONY: web
 web: ## Build the frontend into the embed dir
+	find $(EMBED_DIR) -mindepth 1 ! -name placeholder.html -delete
 	cd $(WEB_DIR) && npm run build
 
 .PHONY: build
@@ -42,5 +43,6 @@ test: ## Run Go tests
 	go test ./...
 
 .PHONY: clean
-clean: ## Remove build artifacts (keeps ./data)
-	rm -rf bin $(EMBED_DIR)
+clean: ## Remove build artifacts (keeps ./data and the embed placeholder)
+	rm -rf bin
+	find $(EMBED_DIR) -mindepth 1 ! -name placeholder.html -delete
