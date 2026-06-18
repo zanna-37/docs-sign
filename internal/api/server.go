@@ -52,8 +52,13 @@ func sessionFrom(ctx context.Context) *session.Session {
 func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders)
 
 	r.Route("/api", func(r chi.Router) {
+		// Decrypted content and API data must never be written to any cache (disk or
+		// shared). Static SPA assets, served below, are deliberately *not* no-store so
+		// the app loads fast — they contain no secrets.
+		r.Use(noStore)
 		r.Use(csrfGuard)
 
 		r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -110,6 +115,28 @@ func (s *Server) Router() http.Handler {
 }
 
 // --- middleware ---
+
+// securityHeaders sets conservative headers on every response.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "no-referrer")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// noStore forbids caching of the response anywhere (browser disk cache, proxies, etc.).
+// This is the primary control that keeps decrypted signatures and PDFs out of the
+// browser's on-disk HTTP cache.
+func noStore(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Cache-Control", "no-store, max-age=0")
+		h.Set("Pragma", "no-cache")
+		next.ServeHTTP(w, r)
+	})
+}
 
 // csrfGuard requires a custom header on state-changing requests. Browsers cannot set custom
 // headers on cross-origin requests without a CORS preflight (which the server never grants),

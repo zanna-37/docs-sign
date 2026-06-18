@@ -9,12 +9,13 @@ export interface PageSize {
   heightPt: number;
 }
 
-// loadPdf opens a PDF (sending session cookies) and returns the document plus each page's
-// size in points (pdf.js scale 1 => 1 unit = 1 point).
+// loadPdf opens a PDF from in-memory bytes (fetched with no-store by the caller) and
+// returns the document plus each page's size in points (pdf.js scale 1 => 1 unit = 1
+// point). Passing bytes rather than a URL keeps the plaintext PDF out of the HTTP cache.
 export async function loadPdf(
-  url: string,
+  data: ArrayBuffer,
 ): Promise<{ doc: PDFDocumentProxy; pages: PageSize[]; destroy: () => void }> {
-  const task = pdfjsLib.getDocument({ url, withCredentials: true });
+  const task = pdfjsLib.getDocument({ data: new Uint8Array(data) });
   const doc = await task.promise;
   const pages: PageSize[] = [];
   for (let i = 1; i <= doc.numPages; i++) {

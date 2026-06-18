@@ -91,7 +91,6 @@ func (s *Server) handleDocumentFile(w http.ResponseWriter, r *http.Request) {
 	dek := sess.DEK()
 	defer crypto.Zero(dek)
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Cache-Control", "private, no-store")
 	_ = s.blobs.DecryptTo(doc.BlobPath, dek, w)
 }
 

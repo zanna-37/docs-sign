@@ -120,7 +120,6 @@ func (s *Server) handleSignatureImage(w http.ResponseWriter, r *http.Request) {
 	dek := sess.DEK()
 	defer crypto.Zero(dek)
 	w.Header().Set("Content-Type", "image/png")
-	w.Header().Set("Cache-Control", "private, no-store")
 	if err := s.blobs.DecryptTo(sig.BlobPath, dek, w); err != nil {
 		// Headers may already be sent; nothing more we can do but log-less fail.
 		return

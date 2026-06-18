@@ -9,6 +9,7 @@ import type {
   Signature,
 } from "../api/types";
 import { loadPdf, type PageSize } from "../editor/pdf";
+import { fetchArrayBuffer, useBlobUrlMap } from "../lib/blobUrls";
 import type { Placement, SignatureMeta } from "../editor/types";
 import { PageView } from "../editor/PageView";
 import { Button, ErrorText, Modal, Spinner } from "../components/ui";
@@ -64,7 +65,8 @@ export function EditorPage() {
           })),
         );
 
-        const loaded = await loadPdf(sigDocUrl(id));
+        const pdfBytes = await fetchArrayBuffer(sigDocUrl(id));
+        const loaded = await loadPdf(pdfBytes);
         if (!active) {
           loaded.destroy();
           return;
@@ -113,6 +115,14 @@ export function EditorPage() {
     () => new Map(signatures.map((s) => [s.id, s])),
     [signatures],
   );
+
+  // Signature PNGs are fetched into in-memory object URLs (no-store) and shared by both
+  // the palette and the placed boxes, so decrypted images never hit the disk cache.
+  const sigItems = useMemo(
+    () => signatures.map((s) => ({ key: s.id, url: sigImageUrl(s.id) })),
+    [signatures],
+  );
+  const sigUrls = useBlobUrlMap(sigItems);
 
   const onPlace = (pageIndex: number, point: { x: number; y: number }) => {
     if (!armed) return;
@@ -242,11 +252,15 @@ export function EditorPage() {
                     className="flex h-10 w-16 shrink-0 items-center justify-center rounded"
                     style={checkerStyle}
                   >
-                    <img
-                      src={sigImageUrl(s.id)}
-                      alt={s.name}
-                      className="max-h-full max-w-full object-contain"
-                    />
+                    {sigUrls[s.id] ? (
+                      <img
+                        src={sigUrls[s.id]}
+                        alt={s.name}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    ) : (
+                      <span className="h-8 w-12 animate-pulse rounded bg-gray-100" />
+                    )}
                   </span>
                   <span className="truncate text-sm text-gray-700">
                     {s.name}
@@ -272,7 +286,7 @@ export function EditorPage() {
                 scale={scale}
                 placements={placements.filter((p) => p.page === i)}
                 selectedId={selectedId}
-                imageUrl={sigImageUrl}
+                imageUrl={(sid) => sigUrls[sid] ?? ""}
                 armed={!!armed}
                 onPlace={onPlace}
                 onSelect={setSelectedId}

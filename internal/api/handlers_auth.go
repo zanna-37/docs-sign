@@ -81,6 +81,9 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		s.sessions.Delete(c.Value)
 	}
 	s.clearSessionCookie(w)
+	// Ask the browser to purge any cached resources and site storage on logout. This is
+	// honored over HTTPS (i.e. in production behind the reverse proxy).
+	w.Header().Set("Clear-Site-Data", `"cache", "storage"`)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

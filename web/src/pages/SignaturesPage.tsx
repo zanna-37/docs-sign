@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import type { Signature } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
+import { SignatureImage } from "../components/SignatureImage";
 import { formatBytes, formatDate } from "../lib/format";
 
 export function SignaturesPage() {
@@ -103,8 +104,8 @@ export function SignaturesPage() {
                   backgroundPosition: "0 0,0 8px,8px -8px,-8px 0",
                 }}
               >
-                <img
-                  src={`/api/signatures/${s.id}/image`}
+                <SignatureImage
+                  id={s.id}
                   alt={s.name}
                   className="max-h-full max-w-full object-contain"
                 />

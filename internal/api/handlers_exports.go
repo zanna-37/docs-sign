@@ -57,7 +57,6 @@ func (s *Server) handleExportFile(w http.ResponseWriter, r *http.Request) {
 	defer crypto.Zero(dek)
 
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", downloadFilename(exp.Name)))
 	_ = s.blobs.DecryptTo(exp.BlobPath, dek, w)
 }
