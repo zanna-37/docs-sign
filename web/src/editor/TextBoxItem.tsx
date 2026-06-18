@@ -31,6 +31,8 @@ interface Props {
   scale: number;
   selected: boolean;
   editing: boolean;
+  pageW: number;
+  pageH: number;
   toPoint: (clientX: number, clientY: number) => { x: number; y: number };
   resolveMove: ResolveMove;
   onSelect: () => void;
@@ -45,6 +47,8 @@ export function TextBoxItem({
   scale,
   selected,
   editing,
+  pageW,
+  pageH,
   toPoint,
   resolveMove,
   onSelect,
@@ -93,6 +97,12 @@ export function TextBoxItem({
       let h = Math.max(12, local.y * sy);
       if (w / aspect >= h) h = w / aspect;
       else w = h * aspect;
+      // Cap so the text box can't grow past the page (anchored at A); the font scales with it.
+      const maxW = sx > 0 ? pageW - A.x : A.x;
+      const maxH = sy > 0 ? pageH - A.y : A.y;
+      const s = Math.min(1, maxW / w, maxH / h);
+      w *= s;
+      h *= s;
       const factor = w / w0;
       const fontSize = Math.max(6, fs0 * factor);
       const half = rotate((sx * w) / 2, (sy * h) / 2, theta);

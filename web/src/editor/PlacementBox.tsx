@@ -9,6 +9,8 @@ interface Props {
   bitmap: ImageBitmap | null;
   lockAspect: boolean;
   aspect: number; // native signature width/height, used when lockAspect is true
+  pageW: number;
+  pageH: number;
   toPoint: (clientX: number, clientY: number) => { x: number; y: number };
   resolveMove: ResolveMove;
   onSelect: () => void;
@@ -23,6 +25,8 @@ export function PlacementBox({
   bitmap,
   lockAspect,
   aspect,
+  pageW,
+  pageH,
   toPoint,
   resolveMove,
   onSelect,
@@ -63,6 +67,18 @@ export function PlacementBox({
         } else {
           w = h * aspect;
         }
+      }
+      // Cap the size so the box can't grow past the page: the distance from the anchored
+      // corner A to the page edge bounds each dimension.
+      const maxW = sx > 0 ? pageW - A.x : A.x;
+      const maxH = sy > 0 ? pageH - A.y : A.y;
+      if (lockAspect && aspect > 0) {
+        const s = Math.min(1, maxW / w, maxH / h);
+        w *= s;
+        h *= s;
+      } else {
+        w = Math.min(w, maxW);
+        h = Math.min(h, maxH);
       }
       const half = rotate((sx * w) / 2, (sy * h) / 2, theta);
       onChange({ ...p, w, h, cx: A.x + half.x, cy: A.y + half.y });

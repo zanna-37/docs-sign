@@ -136,6 +136,8 @@ export function PageView({
             bitmap={bitmapFor(p.signatureId)}
             lockAspect={lockAspect}
             aspect={aspectFor(p.signatureId)}
+            pageW={size.widthPt}
+            pageH={size.heightPt}
             toPoint={toPoint}
             resolveMove={resolveMove}
             onSelect={() => onSelect(p.id)}
@@ -150,6 +152,8 @@ export function PageView({
             scale={scale}
             selected={b.id === selectedId}
             editing={b.id === editingTextId}
+            pageW={size.widthPt}
+            pageH={size.heightPt}
             toPoint={toPoint}
             resolveMove={resolveMove}
             onSelect={() => onSelect(b.id)}
