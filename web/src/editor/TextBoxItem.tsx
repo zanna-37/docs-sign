@@ -1,6 +1,30 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { beginDrag, CORNERS, rotate } from "./drag";
-import { cssFamily, LINE_HEIGHT, refit, TEXT_PAD, type TextBox } from "./text";
+import { cssFamily, drawText, LINE_HEIGHT, refit, TEXT_PAD, type TextBox } from "./text";
+
+// TextDisplay renders the text on a canvas using the same routine as the export, so the
+// on-page preview position matches the flattened output exactly.
+function TextDisplay({ box, scale }: { box: TextBox; scale: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const pxPerPt = scale * (window.devicePixelRatio || 1);
+    c.width = Math.max(1, Math.round(box.w * pxPerPt));
+    c.height = Math.max(1, Math.round(box.h * pxPerPt));
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(pxPerPt, pxPerPt);
+    drawText(ctx, box);
+  }, [box, scale]);
+  return (
+    <canvas
+      ref={ref}
+      className="pointer-events-none select-none"
+      style={{ width: "100%", height: "100%", display: "block" }}
+    />
+  );
+}
 
 interface Props {
   box: TextBox;
@@ -153,9 +177,7 @@ export function TextBoxItem({
           }}
         />
       ) : (
-        <div style={textStyle} className="pointer-events-none select-none">
-          {b.text || " "}
-        </div>
+        <TextDisplay box={b} scale={scale} />
       )}
 
       {selected && !editing && (

@@ -77,22 +77,28 @@ export function refit(tb: TextBox): TextBox {
   return { ...tb, w, h };
 }
 
-// renderPng rasterizes the text box to a base64 PNG data URL at pxPerPt pixels per point.
+// drawText paints the text into a context already scaled to points. Used by BOTH the
+// on-page preview canvas and the export rasterizer, so they are pixel-identical.
+export function drawText(ctx: CanvasRenderingContext2D, tb: TextBox) {
+  ctx.textBaseline = "top";
+  ctx.fillStyle = tb.color;
+  ctx.font = fontString(tb);
+  const lines = tb.text.split("\n");
+  const lh = tb.fontSize * LINE_HEIGHT;
+  // Match the browser line box: text sits below half of the line's leading.
+  const halfLeading = (lh - tb.fontSize) / 2;
+  lines.forEach((line, i) =>
+    ctx.fillText(line, TEXT_PAD, TEXT_PAD + halfLeading + i * lh),
+  );
+}
+
+// renderTextPng rasterizes the text box to a base64 PNG data URL at pxPerPt pixels/point.
 export function renderTextPng(tb: TextBox, pxPerPt: number): string {
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(tb.w * pxPerPt));
   canvas.height = Math.max(1, Math.round(tb.h * pxPerPt));
   const ctx = canvas.getContext("2d")!;
   ctx.scale(pxPerPt, pxPerPt);
-  ctx.textBaseline = "top";
-  ctx.fillStyle = tb.color;
-  ctx.font = fontString(tb);
-  const lines = tb.text.split("\n");
-  const lh = tb.fontSize * LINE_HEIGHT;
-  // Match the browser: text within a line box sits below half of the line's leading.
-  const halfLeading = (lh - tb.fontSize) / 2;
-  lines.forEach((line, i) =>
-    ctx.fillText(line, TEXT_PAD, TEXT_PAD + halfLeading + i * lh),
-  );
+  drawText(ctx, tb);
   return canvas.toDataURL("image/png");
 }
