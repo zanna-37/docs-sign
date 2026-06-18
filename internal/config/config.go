@@ -18,6 +18,7 @@ type Config struct {
 	SessionTimeout time.Duration
 	ExportDPI      int
 	MaxUploadBytes int64
+	TrashRetention time.Duration
 	KDF            crypto.KDFParams
 }
 
@@ -32,6 +33,7 @@ func Parse(args []string) (*Config, error) {
 		sessionTTL = fs.Duration("session-timeout", 12*time.Hour, "absolute session timeout")
 		dpi        = fs.Int("dpi", pdfproc.DefaultDPI, "rasterization DPI for flattened exports")
 		maxUpload  = fs.Int64("max-upload-mb", 64, "maximum upload size in megabytes")
+		trashDays  = fs.Int("trash-days", 30, "days to keep items in the trash before permanent deletion")
 	)
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -44,6 +46,7 @@ func Parse(args []string) (*Config, error) {
 		SessionTimeout: *sessionTTL,
 		ExportDPI:      *dpi,
 		MaxUploadBytes: *maxUpload * 1024 * 1024,
+		TrashRetention: time.Duration(*trashDays) * 24 * time.Hour,
 		KDF:            crypto.DefaultKDFParams(),
 	}, nil
 }

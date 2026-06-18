@@ -44,7 +44,8 @@ export function EditorPage() {
   const [armed, setArmed] = useState<string | null>(null);
   const [lockAspect, setLockAspect] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [done, setDone] = useState<ExportItem | null>(null);
+  const [confirmExport, setConfirmExport] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -182,10 +183,13 @@ export function EditorPage() {
         h: p.h,
         rotation: p.rotation,
       }));
+      // Only now (on confirmed download) is the flattened copy generated and saved.
       const exp = await api.post<ExportItem>(`/documents/${id}/sign`, {
         placements: input,
       });
-      setDone(exp);
+      triggerDownload(exp.id);
+      setConfirmExport(false);
+      setNotice("Signed PDF downloaded and saved to this document’s signed copies.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Export failed.");
     } finally {
@@ -227,13 +231,25 @@ export function EditorPage() {
           <span className="text-sm text-gray-500">
             {placements.length} placed
           </span>
-          <Button onClick={doExport} disabled={exporting || placements.length === 0}>
-            {exporting ? "Flattening…" : "Export signed PDF"}
+          <Button
+            onClick={() => {
+              setNotice("");
+              setConfirmExport(true);
+            }}
+            disabled={placements.length === 0}
+          >
+            Export signed PDF
           </Button>
         </div>
       </div>
 
       {error && <ErrorText>{error}</ErrorText>}
+
+      {notice && (
+        <p className="rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700">
+          {notice}
+        </p>
+      )}
 
       {armed && (
         <div className="rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-700">
@@ -326,32 +342,32 @@ export function EditorPage() {
         </div>
       </div>
 
-      {done && (
-        <Modal open title="Document signed">
+      {confirmExport && (
+        <Modal open title="Export signed PDF?">
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Your flattened, signed PDF was created and stored (encrypted). The
-              signature is rasterized into the page and cannot be extracted.
+              This flattens the document (the signature is rasterized into the
+              page and cannot be extracted), downloads it, and saves a copy to
+              this document’s signed copies. Nothing is saved unless you
+              download.
             </p>
             <div className="flex gap-2">
-              <a href={`/api/exports/${done.id}/file`} className="flex-1">
-                <Button className="w-full">Download</Button>
-              </a>
+              <Button
+                className="flex-1"
+                onClick={() => void doExport()}
+                disabled={exporting}
+              >
+                {exporting ? "Flattening…" : "Download"}
+              </Button>
               <Button
                 variant="secondary"
                 className="flex-1"
-                onClick={() => navigate("/history")}
+                onClick={() => setConfirmExport(false)}
+                disabled={exporting}
               >
-                Go to history
+                Keep editing
               </Button>
             </div>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => setDone(null)}
-            >
-              Keep editing
-            </Button>
           </div>
         </Modal>
       )}
@@ -360,3 +376,13 @@ export function EditorPage() {
 }
 
 const sigDocUrl = (id: string) => `/api/documents/${id}/file`;
+
+// triggerDownload starts a browser download of an export without leaving the page.
+function triggerDownload(exportId: string) {
+  const a = document.createElement("a");
+  a.href = `/api/exports/${exportId}/file`;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}

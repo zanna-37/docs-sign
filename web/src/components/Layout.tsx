@@ -22,9 +22,12 @@ export function Layout() {
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-6">
-            <span className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <NavLink
+              to="/documents"
+              className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:opacity-80"
+            >
               <span className="text-blue-600">✦</span> docs-sign
-            </span>
+            </NavLink>
             <nav className="flex items-center gap-1">
               <NavLink to="/documents" className={navClass}>
                 Documents
@@ -32,8 +35,8 @@ export function Layout() {
               <NavLink to="/signatures" className={navClass}>
                 Signatures
               </NavLink>
-              <NavLink to="/history" className={navClass}>
-                History
+              <NavLink to="/trash" className={navClass}>
+                Trash
               </NavLink>
               {user?.isAdmin && (
                 <NavLink to="/admin" className={navClass}>

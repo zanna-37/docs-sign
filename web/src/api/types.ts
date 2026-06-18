@@ -40,6 +40,15 @@ export interface AdminUser {
   createdAt: string;
 }
 
+export interface TrashItem {
+  id: string;
+  kind: "signature" | "document" | "export";
+  name: string;
+  byteSize: number;
+  deletedAt: string;
+  purgeAt: string;
+}
+
 // PlacementInput is sent to the server: top-left origin, PDF points, clockwise rotation.
 export interface PlacementInput {
   signatureId: string;

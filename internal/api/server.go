@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -37,6 +38,39 @@ type Server struct {
 // NewServer constructs a Server.
 func NewServer(cfg *config.Config, st *store.Store, blobs *blob.Store, sessions *session.Manager, authSvc *auth.Service, pdf *pdfproc.Renderer) *Server {
 	return &Server{cfg: cfg, store: st, blobs: blobs, sessions: sessions, auth: authSvc, pdf: pdf}
+}
+
+// StartTrashJanitor periodically purges trashed items older than the retention window,
+// deleting their encrypted blobs. It runs once immediately, then hourly until ctx is done.
+func (s *Server) StartTrashJanitor(ctx context.Context) {
+	go func() {
+		s.purgeTrash(ctx)
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.purgeTrash(ctx)
+			}
+		}
+	}()
+}
+
+func (s *Server) purgeTrash(ctx context.Context) {
+	cutoff := time.Now().Add(-s.cfg.TrashRetention)
+	paths, err := s.store.PurgeExpired(ctx, cutoff)
+	if err != nil {
+		log.Printf("trash purge: %v", err)
+		return
+	}
+	for _, p := range paths {
+		_ = s.blobs.Delete(p)
+	}
+	if len(paths) > 0 {
+		log.Printf("trash purge: removed %d expired item blob(s)", len(paths))
+	}
 }
 
 type ctxKey int
@@ -96,6 +130,11 @@ func (s *Server) Router() http.Handler {
 				r.Get("/exports", s.handleListExports)
 				r.Get("/exports/{id}/file", s.handleExportFile)
 				r.Delete("/exports/{id}", s.handleDeleteExport)
+
+				r.Get("/trash", s.handleListTrash)
+				r.Post("/trash/empty", s.handleEmptyTrash)
+				r.Post("/trash/{kind}/{id}/restore", s.handleRestoreTrash)
+				r.Delete("/trash/{kind}/{id}", s.handlePurgeTrashItem)
 
 				r.Route("/admin", func(r chi.Router) {
 					r.Use(s.requireAdmin)

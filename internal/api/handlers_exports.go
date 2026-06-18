@@ -63,12 +63,10 @@ func (s *Server) handleExportFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteExport(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	relPath, err := s.store.DeleteExport(r.Context(), sess.UserID, chi.URLParam(r, "id"))
-	if err != nil {
+	if err := s.store.SoftDeleteExport(r.Context(), sess.UserID, chi.URLParam(r, "id")); err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	_ = s.blobs.Delete(relPath)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

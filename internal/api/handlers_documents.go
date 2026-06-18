@@ -115,12 +115,12 @@ func (s *Server) handleRenameDocument(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteDocument(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	relPath, err := s.store.DeleteDocument(r.Context(), sess.UserID, chi.URLParam(r, "id"))
-	if err != nil {
+	// Soft-delete only the document; its signed copies ride along (hidden) and are
+	// removed when the document is permanently deleted or purged.
+	if err := s.store.SoftDeleteDocument(r.Context(), sess.UserID, chi.URLParam(r, "id")); err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	_ = s.blobs.Delete(relPath)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

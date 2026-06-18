@@ -89,11 +89,36 @@ func TestSignatureCRUD(t *testing.T) {
 	if got.Name != "Renamed" {
 		t.Fatalf("rename failed: %q", got.Name)
 	}
-	path, err := s.DeleteSignature(ctx, uid, sig.ID)
-	if err != nil || path != "p" {
-		t.Fatalf("delete path=%q err=%v", path, err)
+	// Soft delete moves it to trash: it disappears from active queries but appears in trash.
+	if err := s.SoftDeleteSignature(ctx, uid, sig.ID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := s.GetSignature(ctx, uid, sig.ID); err != ErrNotFound {
-		t.Fatalf("expected ErrNotFound, got %v", err)
+		t.Fatalf("expected ErrNotFound after soft delete, got %v", err)
+	}
+	if list, _ := s.ListSignatures(ctx, uid); len(list) != 0 {
+		t.Fatalf("active list should be empty, got %d", len(list))
+	}
+	trash, err := s.ListTrash(ctx, uid)
+	if err != nil || len(trash) != 1 || trash[0].Kind != KindSignature {
+		t.Fatalf("trash=%v err=%v", trash, err)
+	}
+
+	// Restore brings it back.
+	if err := s.RestoreItem(ctx, uid, KindSignature, sig.ID); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ := s.ListSignatures(ctx, uid); len(list) != 1 {
+		t.Fatalf("expected 1 active signature after restore, got %d", len(list))
+	}
+
+	// Soft delete again, then permanently delete from trash.
+	_ = s.SoftDeleteSignature(ctx, uid, sig.ID)
+	paths, err := s.HardDeleteItem(ctx, uid, KindSignature, sig.ID)
+	if err != nil || len(paths) != 1 || paths[0] != "p" {
+		t.Fatalf("hard delete paths=%v err=%v", paths, err)
+	}
+	if trash, _ := s.ListTrash(ctx, uid); len(trash) != 0 {
+		t.Fatal("trash should be empty after permanent delete")
 	}
 }

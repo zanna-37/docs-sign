@@ -9,7 +9,7 @@ import { ForceChangePasswordPage } from "./pages/ForceChangePasswordPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { SignaturesPage } from "./pages/SignaturesPage";
 import { EditorPage } from "./pages/EditorPage";
-import { HistoryPage } from "./pages/HistoryPage";
+import { TrashPage } from "./pages/TrashPage";
 import { AccountPage } from "./pages/AccountPage";
 import { AdminPage } from "./pages/AdminPage";
 
@@ -57,7 +57,7 @@ export function App() {
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/documents/:id/sign" element={<EditorPage />} />
         <Route path="/signatures" element={<SignaturesPage />} />
-        <Route path="/history" element={<HistoryPage />} />
+        <Route path="/trash" element={<TrashPage />} />
         <Route path="/account" element={<AccountPage />} />
         {user.isAdmin && <Route path="/admin" element={<AdminPage />} />}
         <Route path="*" element={<Navigate to="/documents" replace />} />

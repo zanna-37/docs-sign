@@ -48,7 +48,41 @@ func Open(path string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) migrate(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, schema)
+	if _, err := s.db.ExecContext(ctx, schema); err != nil {
+		return err
+	}
+	// Idempotent upgrade for databases created before soft-delete was added.
+	for _, table := range []string{"signatures", "documents", "exports"} {
+		if err := s.ensureColumn(ctx, table, "deleted_at", "INTEGER"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ensureColumn adds a column to a table if it does not already exist.
+func (s *Store) ensureColumn(ctx context.Context, table, column, decl string) error {
+	rows, err := s.db.QueryContext(ctx, "PRAGMA table_info("+table+")")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == column {
+			return rows.Close()
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+	_, err = s.db.ExecContext(ctx, "ALTER TABLE "+table+" ADD COLUMN "+column+" "+decl)
 	return err
 }
 
@@ -91,7 +125,8 @@ CREATE TABLE IF NOT EXISTS signatures (
     width      INTEGER NOT NULL DEFAULT 0,
     height     INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -102,7 +137,8 @@ CREATE TABLE IF NOT EXISTS documents (
     byte_size   INTEGER NOT NULL,
     page_count  INTEGER NOT NULL DEFAULT 0,
     created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
+    updated_at  INTEGER NOT NULL,
+    deleted_at  INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS exports (
@@ -113,7 +149,8 @@ CREATE TABLE IF NOT EXISTS exports (
     blob_path   TEXT NOT NULL,
     byte_size   INTEGER NOT NULL,
     page_count  INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL
+    created_at  INTEGER NOT NULL,
+    deleted_at  INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_signatures_user ON signatures(user_id);

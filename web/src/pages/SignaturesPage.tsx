@@ -3,6 +3,7 @@ import { api, ApiError } from "../api/client";
 import type { Signature } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { SignatureImage } from "../components/SignatureImage";
+import { Dropzone } from "../components/Dropzone";
 import { formatBytes, formatDate } from "../lib/format";
 
 export function SignaturesPage() {
@@ -24,20 +25,31 @@ export function SignaturesPage() {
     void reload();
   }, []);
 
-  const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  const uploadFiles = async (files: File[]) => {
     setError("");
     setBusy(true);
     try {
-      await api.upload<Signature>("/signatures", file, file.name);
+      for (const file of files) {
+        const isPng =
+          file.type === "image/png" || /\.png$/i.test(file.name);
+        if (!isPng) {
+          setError(`"${file.name}" is not a PNG image.`);
+          continue;
+        }
+        await api.upload<Signature>("/signatures", file, file.name);
+      }
       await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed.");
     } finally {
       setBusy(false);
     }
+  };
+
+  const onUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length) void uploadFiles(files);
   };
 
   const rename = async (s: Signature) => {
@@ -62,7 +74,8 @@ export function SignaturesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <Dropzone onFiles={uploadFiles} label="Drop PNG signatures to upload">
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Signatures</h1>
@@ -133,6 +146,7 @@ export function SignaturesPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </Dropzone>
   );
 }
