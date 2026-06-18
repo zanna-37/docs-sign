@@ -219,6 +219,18 @@ func (s *Store) DeleteExport(ctx context.Context, userID, id string) (string, er
 	return s.deleteRow(ctx, "exports", userID, id)
 }
 
+// DeleteUserContent removes all signatures, documents and exports for a user without
+// deleting the user row. Used by destructive admin reset; the caller is responsible for
+// removing the user's blob files from disk.
+func (s *Store) DeleteUserContent(ctx context.Context, userID string) error {
+	for _, table := range []string{"exports", "documents", "signatures"} {
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM `+table+` WHERE user_id=?`, userID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // --- shared helpers ---
 
 // renameRow updates the name of a user-owned row in the given table.
