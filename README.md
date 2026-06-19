@@ -52,3 +52,18 @@ make build        # builds frontend + single Go binary into ./bin/docs-sign
 ```
 
 See `make help` for all targets.
+
+## License & third-party attribution
+
+docs-sign itself is proprietary — see [`LICENSE`](LICENSE).
+
+The binary and image bundle third-party components under their own (permissive) licenses,
+whose notices are reproduced in [`THIRD_PARTY_LICENSES`](THIRD_PARTY_LICENSES) and shipped
+inside the image under `/usr/local/share/doc/docs-sign/`. This includes the embedded
+**PDFium** engine (BSD-3-Clause, plus the libraries it bundles — notably **FreeType**,
+whose license requires an acknowledgement) and **pdf.js** (Apache-2.0). Regenerate the file
+after changing dependencies:
+
+```sh
+make licenses     # rewrites THIRD_PARTY_LICENSES from the Go module cache + node_modules
+```

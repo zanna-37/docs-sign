@@ -38,6 +38,10 @@ dev-server: ## Run the Go API server (expects frontend on the Vite dev server)
 dev-web: ## Run the Vite dev server with API proxy
 	cd $(WEB_DIR) && npm run dev
 
+.PHONY: licenses
+licenses: ## Regenerate THIRD_PARTY_LICENSES from the module cache and node_modules
+	./scripts/gen-third-party-licenses.sh
+
 .PHONY: test
 test: ## Run Go tests
 	go test ./...

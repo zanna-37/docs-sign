@@ -1,0 +1,82 @@
+Curated notices for components that are redistributed inside docs-sign but whose
+license texts are NOT carried in the Go module cache or in node_modules. These are
+concatenated verbatim into THIRD_PARTY_LICENSES by scripts/gen-third-party-licenses.sh.
+
+The dominant entry here is PDFium: the package github.com/klippa-app/go-pdfium embeds a
+precompiled PDFium build (pdfium.wasm, via //go:embed) which is therefore baked into the
+docs-sign binary and shipped in the container image. The klippa Go module ships only its
+own (MIT) license — PDFium's own license and the licenses of the third-party libraries
+PDFium bundles must be reproduced separately, which is what this file does.
+
+================================================================================
+PDFium  (https://pdfium.googlesource.com/pdfium/)
+Embedded as pdfium.wasm via github.com/klippa-app/go-pdfium.
+================================================================================
+
+// Copyright 2014 The PDFium Authors
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+//    * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+//    * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+//    * Neither the name of Google Inc. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Portions of PDFium are additionally provided under the Apache License, Version 2.0.
+The full text of the Apache License 2.0 is reproduced elsewhere in this file (see the
+pdfjs-dist entry). The authoritative, up-to-date PDFium license is at:
+https://pdfium.googlesource.com/pdfium/+/refs/heads/main/LICENSE
+
+--------------------------------------------------------------------------------
+Third-party libraries bundled inside the PDFium build
+--------------------------------------------------------------------------------
+
+The PDFium WebAssembly build links additional third-party libraries, each under its
+own permissive license. The authoritative per-library license texts live in the
+PDFium source tree under third_party/<lib>/LICENSE:
+https://pdfium.googlesource.com/pdfium/+/refs/heads/main/third_party/
+
+One of these carries an explicit, mandatory acknowledgement requirement and is
+reproduced here:
+
+FreeType  (https://freetype.org) — The FreeType License (FTL)
+
+    Portions of this software are copyright (C) The FreeType Project
+    (https://freetype.org).  All rights reserved.
+
+The FTL permits royalty-free use and redistribution in binary form provided the
+above acknowledgement appears in the product documentation. The full FreeType
+License text is available at:
+https://gitlab.freedesktop.org/freetype/freetype/-/raw/master/docs/FTL.TXT
+
+================================================================================
+Container base image
+================================================================================
+
+The published container image is built FROM ghcr.io/linuxserver/baseimage-alpine
+(LinuxServer.io), which itself bundles Alpine Linux packages and s6-overlay. Those
+components remain under their own licenses, whose texts are shipped inside the
+image (e.g. under /usr/share/licenses and the s6-overlay distribution). s6-overlay
+is distributed under the ISC license; Alpine base packages carry a mix of
+permissive and copyleft licenses as provided by the Alpine project. See:
+https://github.com/linuxserver/docker-baseimage-alpine
+https://github.com/just-containers/s6-overlay
