@@ -86,6 +86,17 @@ the published port on `127.0.0.1` and put TLS on a reverse proxy on the host.
 `PUID`/`PGID` default to `911` (the LinuxServer baseimage default); set them to match the
 owner of your bind-mounted `/config` so file permissions line up.
 
+### Published images / CI
+
+`.github/workflows/docker.yml` builds a multi-arch image (`linux/amd64` + `linux/arm64`)
+and pushes it to Docker Hub on every push to `main` (tags `latest` and `sha-<short>`) and
+on version tags `vX.Y.Z` (semver tags). It needs two repository secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `DOCKERHUB_USERNAME` | Docker Hub account; also used as the image namespace (`<user>/docs-sign`). |
+| `DOCKERHUB_TOKEN` | Docker Hub access token with read/write scope. |
+
 ## License & third-party attribution
 
 docs-sign itself is proprietary — see [`LICENSE`](LICENSE).
