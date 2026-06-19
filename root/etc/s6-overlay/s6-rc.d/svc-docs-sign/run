@@ -1,0 +1,8 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+# Run the server as the unprivileged runtime user. PORT (default 8080) selects the
+# in-container listen port; bind on all interfaces so the published port is reachable.
+exec \
+    s6-setuidgid abc \
+        /usr/local/bin/docs-sign --data /config --addr "0.0.0.0:${PORT:-8080}"

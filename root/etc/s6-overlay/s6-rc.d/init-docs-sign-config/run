@@ -1,0 +1,8 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+# Ensure the data directory exists and is owned by the runtime user (abc), whose
+# uid/gid the baseimage has already set from PUID/PGID. This lets bind-mounted
+# /config volumes work regardless of their host ownership.
+mkdir -p /config
+lsiown -R abc:abc /config

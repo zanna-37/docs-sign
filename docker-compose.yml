@@ -1,0 +1,30 @@
+# Run docs-sign with a persistent /config volume, LinuxServer.io style.
+#
+#   docker compose up -d        # build locally and start
+#   open http://127.0.0.1:8080  # first run: create the admin account
+#
+# To run the published image instead of building locally, comment out `build: .` and set
+# `image:` to your published tag, e.g. image: your-dockerhub-user/docs-sign:latest
+#
+# The port is published on 127.0.0.1 only: docs-sign serves plain HTTP and is meant to sit
+# behind a TLS-terminating reverse proxy (nginx/Caddy/Traefik) on the host. Drop the
+# 127.0.0.1 prefix only if the proxy lives in another container/network.
+
+services:
+  docs-sign:
+    build: .
+    image: docs-sign:latest
+    restart: unless-stopped
+    environment:
+      - PUID=1000          # uid the server runs as (owns /config)
+      - PGID=1000          # gid the server runs as
+      - TZ=Etc/UTC         # container timezone, e.g. Europe/Rome
+      - UMASK=022          # file-creation mask for the server
+      - PORT=8080          # in-container listen port (match the container side below)
+    ports:
+      - "127.0.0.1:8080:8080"   # host:container — if you change PORT, change the container side too
+    volumes:
+      - config:/config           # all state: encrypted blobs + SQLite metadata
+
+volumes:
+  config:

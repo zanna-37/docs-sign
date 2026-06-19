@@ -1,0 +1,33 @@
+# Keep the build context small and reproducible. The image rebuilds the frontend and
+# downloads Go modules fresh, so none of the local build state should be sent to the
+# daemon.
+
+.git
+.github
+.gitignore
+
+# Local build artifacts
+bin/
+dist/
+
+# Frontend deps and build output (reinstalled / rebuilt inside the image)
+**/node_modules
+internal/web/dist
+
+# Runtime data — never copy encrypted blobs or the database into an image
+data/
+*.db
+*.db-wal
+*.db-shm
+*.enc
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Docker / compose files don't need to be in the context
+Dockerfile
+.dockerignore
+docker-compose.yml

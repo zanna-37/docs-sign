@@ -53,6 +53,39 @@ make build        # builds frontend + single Go binary into ./bin/docs-sign
 
 See `make help` for all targets.
 
+## Run with Docker
+
+The image follows the [LinuxServer.io](https://www.linuxserver.io/) conventions: it is
+built on their s6-overlay baseimage, runs the server as an unprivileged user whose
+uid/gid you set at runtime, and keeps all state under a `/config` volume.
+
+```sh
+docker compose up -d            # build locally and start
+# or pull the published image:
+docker run -d --name docs-sign \
+  -e PUID=1000 -e PGID=1000 \
+  -e TZ=Europe/Rome \
+  -e PORT=8080 \
+  -p 127.0.0.1:8080:8080 \
+  -v docs-sign-config:/config \
+  <your-dockerhub-user>/docs-sign:latest
+```
+
+Then open `http://127.0.0.1:8080/` and create the admin account (first-run setup happens
+in the browser — no interactive terminal needed). The container serves plain HTTP; keep
+the published port on `127.0.0.1` and put TLS on a reverse proxy on the host.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PUID` | `911` | User id the server runs as and that owns `/config`. |
+| `PGID` | `911` | Group id the server runs as. |
+| `TZ` | `Etc/UTC` | Container timezone (e.g. `Europe/Rome`). |
+| `UMASK` | `022` | File-creation mask for the server. |
+| `PORT` | `8080` | In-container listen port. If you change it, change the `-p` mapping's container side to match. |
+
+`PUID`/`PGID` default to `911` (the LinuxServer baseimage default); set them to match the
+owner of your bind-mounted `/config` so file permissions line up.
+
 ## License & third-party attribution
 
 docs-sign itself is proprietary — see [`LICENSE`](LICENSE).

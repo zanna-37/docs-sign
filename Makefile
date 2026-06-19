@@ -42,6 +42,10 @@ dev-web: ## Run the Vite dev server with API proxy
 licenses: ## Regenerate THIRD_PARTY_LICENSES from the module cache and node_modules
 	./scripts/gen-third-party-licenses.sh
 
+.PHONY: docker
+docker: ## Build the container image locally (single-arch, tagged docs-sign:dev)
+	docker build --tag docs-sign:dev .
+
 .PHONY: test
 test: ## Run Go tests
 	go test ./...
