@@ -251,6 +251,11 @@ func TestVersionEndpoint(t *testing.T) {
 	if _, ok := v["commit"]; !ok {
 		t.Fatalf("expected a commit field, got %+v", v)
 	}
+	// repoURL is a build constant (not stamped in tests), so it carries its default and lets
+	// the SPA link the version to its GitHub release.
+	if v["repoURL"] == "" {
+		t.Fatalf("expected a repoURL, got %+v", v)
+	}
 }
 
 // postReq issues a request with the CSRF header and no body (used for GETs here).

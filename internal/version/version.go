@@ -12,3 +12,11 @@ var Version = "dev"
 
 // Commit is the short git commit hash the binary was built from.
 var Commit = "none"
+
+// RepoURL is the HTTPS base URL of the project's source repository. It turns the displayed
+// Version into a link to the matching GitHub release. The default is the canonical upstream
+// and is correct for every build of this repo (local, CI and the published images); forks
+// that re-publish can override it at link time, e.g.
+//
+//	-X docs-sign/internal/version.RepoURL=https://github.com/you/your-fork
+var RepoURL = "https://github.com/zanna-37/docs-sign"

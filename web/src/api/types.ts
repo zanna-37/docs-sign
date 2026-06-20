@@ -1,6 +1,8 @@
 export interface VersionInfo {
   version: string;
   commit: string;
+  // HTTPS base URL of the source repo, used to link the version to its GitHub release.
+  repoURL: string;
 }
 
 export interface User {
