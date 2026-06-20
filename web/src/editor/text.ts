@@ -37,7 +37,7 @@ function fontString(tb: Pick<TextBox, "fontSize" | "family" | "bold">): string {
 
 let shared: HTMLCanvasElement | null = null;
 function measureCtx(): CanvasRenderingContext2D {
-  if (!shared) shared = document.createElement("canvas");
+  shared ??= document.createElement("canvas");
   return shared.getContext("2d")!;
 }
 

@@ -3,6 +3,14 @@ WEB_DIR := web
 EMBED_DIR := internal/web/dist
 GO_FILES := $(shell find . -name '*.go' -not -path './web/*' 2>/dev/null)
 
+# Version is derived from git tags: a clean tagged commit yields e.g. "v1.2.3", commits
+# past a tag yield "v1.2.3-4-gabc1234", and a repo with no tags falls back to the short
+# SHA. Override on the command line with `make build VERSION=v1.2.3` if needed.
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
+VERSION_PKG := docs-sign/internal/version
+GO_LDFLAGS  := -s -w -X $(VERSION_PKG).Version=$(VERSION) -X $(VERSION_PKG).Commit=$(COMMIT)
+
 .DEFAULT_GOAL := help
 
 .PHONY: help
@@ -23,8 +31,8 @@ web: ## Build the frontend into the embed dir
 .PHONY: build
 build: web ## Build the single self-contained binary (frontend embedded)
 	mkdir -p bin
-	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o $(BINARY) ./cmd/docs-sign
-	@echo "built $(BINARY)"
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(GO_LDFLAGS)" -o $(BINARY) ./cmd/docs-sign
+	@echo "built $(BINARY) ($(VERSION))"
 
 .PHONY: run
 run: build ## Build and run with a local ./data dir

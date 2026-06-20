@@ -42,7 +42,10 @@ export function DocumentsPage() {
   const exportsByDoc = useMemo(() => {
     const m: Record<string, ExportItem[]> = {};
     for (const e of exports) {
-      if (e.documentId) (m[e.documentId] ??= []).push(e);
+      if (e.documentId) {
+        m[e.documentId] ??= [];
+        m[e.documentId].push(e);
+      }
     }
     return m;
   }, [exports]);
@@ -123,6 +126,15 @@ export function DocumentsPage() {
     }
   };
 
+  const fallback =
+    items === null ? (
+      <Spinner />
+    ) : (
+      <Card className="p-10 text-center text-sm text-gray-500">
+        {t("documents.empty")}
+      </Card>
+    );
+
   return (
     <Dropzone onFiles={uploadFiles} label={t("documents.drop")}>
       <div className="space-y-6">
@@ -148,12 +160,8 @@ export function DocumentsPage() {
 
         <ErrorText>{error}</ErrorText>
 
-        {items === null ? (
-          <Spinner />
-        ) : items.length === 0 ? (
-          <Card className="p-10 text-center text-sm text-gray-500">
-            {t("documents.empty")}
-          </Card>
+        {items === null || items.length === 0 ? (
+          fallback
         ) : (
           <Card className="divide-y divide-gray-100">
             {items.map((d) => {

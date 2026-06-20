@@ -20,6 +20,7 @@ const it: Dict = {
     cancel: "Annulla",
     confirm: "Conferma",
     save: "Salva",
+    version: "Versione",
     username: "Nome utente",
     password: "Password",
     newPassword: "Nuova password",

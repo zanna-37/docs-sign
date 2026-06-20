@@ -1,11 +1,22 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { beginDrag, beginMove, beginRotate, rotate, type ResolveMove } from "./drag";
+import {
+  applyBoxKey,
+  beginDrag,
+  beginMove,
+  beginRotate,
+  rotate,
+  type ResolveMove,
+} from "./drag";
 import { SelectionHandles } from "./SelectionHandles";
 import { cssFamily, drawText, LINE_HEIGHT, refit, TEXT_PAD, type TextBox } from "./text";
 
+// Points added to / removed from the font size per keyboard resize step. The box hugs the
+// text, so resizing a text box means scaling its font and re-fitting the bounds.
+const FONT_STEP = 1;
+
 // TextDisplay renders the text on a canvas using the same routine as the export, so the
 // on-page preview position matches the flattened output exactly.
-function TextDisplay({ box, scale }: { box: TextBox; scale: number }) {
+function TextDisplay({ box, scale }: Readonly<{ box: TextBox; scale: number }>) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current;
@@ -57,7 +68,7 @@ export function TextBoxItem({
   onStartEdit,
   onStopEdit,
   onDelete,
-}: Props) {
+}: Readonly<Props>) {
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   // Focus and select all when entering edit mode (so typing replaces the default text).
@@ -111,6 +122,41 @@ export function TextBoxItem({
     beginRotate(b, toPoint, onChange);
   };
 
+  // Keyboard resize: scale the font and re-fit, refusing growth that would overflow the page.
+  const resizeByKey = (grow: number) => {
+    const fontSize = Math.max(6, b.fontSize + grow * FONT_STEP);
+    if (fontSize === b.fontSize) return;
+    const next = refit({ ...b, fontSize });
+    if (grow > 0 && (next.w > pageW || next.h > pageH)) return;
+    onChange(next);
+  };
+
+  // Keyboard equivalents of the pointer gestures, available whenever the box is focused (but
+  // not while editing — the textarea then owns every key and stops propagation). Resize ignores
+  // the axis: a text box hugs its text, so any resize arrow scales the font proportionally.
+  const onKeyDown = (e: React.KeyboardEvent) =>
+    applyBoxKey(e, b, {
+      onChange,
+      onDelete,
+      onActivate: () => {
+        onSelect();
+        onStartEdit();
+      },
+      onResize: resizeByKey,
+    });
+
+  const trimmed = b.text.trim();
+  const a11yProps: React.HTMLAttributes<HTMLDivElement> = editing
+    ? {}
+    : {
+        role: "application",
+        tabIndex: 0,
+        "aria-label": trimmed ? `Text box: ${trimmed.slice(0, 40)}` : "Empty text box",
+        "aria-roledescription": "Editable text box",
+        onFocus: onSelect,
+        onKeyDown,
+      };
+
   const left = (b.cx - b.w / 2) * scale;
   const top = (b.cy - b.h / 2) * scale;
   const width = b.w * scale;
@@ -130,6 +176,15 @@ export function TextBoxItem({
     overflow: "hidden",
   };
 
+  let boxClass: string;
+  if (editing) {
+    boxClass = "cursor-text outline-2 outline-blue-500";
+  } else if (selected) {
+    boxClass = "cursor-move outline-2 outline-blue-500";
+  } else {
+    boxClass = "cursor-move outline-1 outline-dashed outline-blue-300 hover:outline";
+  }
+
   return (
     <div
       style={{
@@ -148,13 +203,8 @@ export function TextBoxItem({
         onSelect();
         onStartEdit();
       }}
-      className={
-        editing
-          ? "cursor-text outline outline-2 outline-blue-500"
-          : selected
-            ? "cursor-move outline outline-2 outline-blue-500"
-            : "cursor-move outline-1 outline-dashed outline-blue-300 hover:outline"
-      }
+      {...a11yProps}
+      className={boxClass}
     >
       {editing ? (
         <textarea

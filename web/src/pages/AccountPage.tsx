@@ -9,7 +9,7 @@ import { useDialog } from "../components/Dialog";
 import { RecoveryCodeDialog } from "../components/RecoveryCodeDialog";
 import { Button, Card, ErrorText, Field, Input } from "../components/ui";
 
-function Notice({ children }: { children: React.ReactNode }) {
+function Notice({ children }: Readonly<{ children: React.ReactNode }>) {
   if (!children) return null;
   return (
     <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
@@ -36,7 +36,7 @@ export function AccountPage() {
   const [recoveryCode, setRecoveryCode] = useState("");
   const [error, setError] = useState("");
 
-  const changeUsername = async (e: React.FormEvent) => {
+  const changeUsername = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setUsernameError("");
     setUsernameNotice("");
@@ -67,7 +67,7 @@ export function AccountPage() {
     }
   };
 
-  const changePassword = async (e: React.FormEvent) => {
+  const changePassword = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setPwError("");
     setPwNotice("");

@@ -55,7 +55,7 @@ export function PageView({
   onTextDelete,
   onStartEditText,
   onStopEditText,
-}: Props) {
+}: Readonly<Props>) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -125,7 +125,14 @@ export function PageView({
           registerOverlay(el);
         }}
         className={`absolute inset-0 ${armed ? "cursor-copy" : ""}`}
+        role="application"
+        aria-label="Document page editing surface"
         onPointerDown={onOverlayPointerDown}
+        onKeyDown={(e) => {
+          // Escape (bubbling from a focused box) deselects. The overlay itself is not a tab
+          // stop — keyboard manipulation lives on the focused box; this is a placement surface.
+          if (e.key === "Escape" && !editingTextId) onSelect(null);
+        }}
       >
         {placements.map((p) => (
           <PlacementBox

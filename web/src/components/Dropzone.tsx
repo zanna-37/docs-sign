@@ -6,11 +6,11 @@ export function Dropzone({
   onFiles,
   label = "Drop files to upload",
   children,
-}: {
+}: Readonly<{
   onFiles: (files: File[]) => void;
   label?: string;
   children: ReactNode;
-}) {
+}>) {
   const [dragging, setDragging] = useState(false);
   const counter = useRef(0);
 

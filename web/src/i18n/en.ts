@@ -18,6 +18,7 @@ const en = {
     cancel: "Cancel",
     confirm: "Confirm",
     save: "Save",
+    version: "Version",
     username: "Username",
     password: "Password",
     newPassword: "New password",

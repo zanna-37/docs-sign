@@ -1,15 +1,16 @@
 import type { ReactNode } from "react";
+import { AppVersion } from "./AppVersion";
 import { Card } from "./ui";
 
 export function AuthShell({
   title,
   subtitle,
   children,
-}: {
+}: Readonly<{
   title: string;
   subtitle?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div className="flex min-h-full items-center justify-center p-6">
       <div className="w-full max-w-sm">
@@ -21,6 +22,9 @@ export function AuthShell({
           {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
         </div>
         <Card className="p-6">{children}</Card>
+        <p className="mt-6 text-center text-xs text-gray-400">
+          <AppVersion />
+        </p>
       </div>
     </div>
   );

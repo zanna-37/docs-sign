@@ -40,11 +40,19 @@ func NewServer(cfg *config.Config, st *store.Store, blobs *blob.Store, sessions 
 	return &Server{cfg: cfg, store: st, blobs: blobs, sessions: sessions, auth: authSvc, pdf: pdf}
 }
 
+// orphanGracePeriod is how old a blob with no referencing database row must be before the
+// reconciler reaps it. Uploads write the blob before committing its row, so a fresh blob can
+// momentarily look orphaned; this margin keeps the sweep from deleting an in-flight upload.
+const orphanGracePeriod = time.Hour
+
 // StartTrashJanitor periodically purges trashed items older than the retention window,
-// deleting their encrypted blobs. It runs once immediately, then hourly until ctx is done.
+// deleting their encrypted blobs, then reconciles the blob store to reap any orphaned blobs
+// left behind by interrupted or failed deletes. It runs once immediately, then hourly until
+// ctx is done.
 func (s *Server) StartTrashJanitor(ctx context.Context) {
 	go func() {
 		s.purgeTrash(ctx)
+		s.reconcileBlobs(ctx)
 		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
 		for {
@@ -53,6 +61,7 @@ func (s *Server) StartTrashJanitor(ctx context.Context) {
 				return
 			case <-ticker.C:
 				s.purgeTrash(ctx)
+				s.reconcileBlobs(ctx)
 			}
 		}
 	}()
@@ -70,6 +79,26 @@ func (s *Server) purgeTrash(ctx context.Context) {
 	}
 	if len(paths) > 0 {
 		log.Printf("trash purge: removed %d expired item blob(s)", len(paths))
+	}
+}
+
+// reconcileBlobs removes encrypted blobs on disk that no database row references — the
+// orphans left when a hard delete's best-effort blob removal fails or is interrupted after
+// the row is already gone. Blobs younger than orphanGracePeriod are spared so the sweep
+// cannot race an in-flight upload (which writes its blob before committing its row).
+func (s *Server) reconcileBlobs(ctx context.Context) {
+	referenced, err := s.store.AllReferencedBlobPaths(ctx)
+	if err != nil {
+		log.Printf("blob reconcile: %v", err)
+		return
+	}
+	cutoff := time.Now().Add(-orphanGracePeriod)
+	reaped, err := s.blobs.ReconcileOrphans(referenced, cutoff)
+	if err != nil {
+		log.Printf("blob reconcile: %v", err)
+	}
+	if reaped > 0 {
+		log.Printf("blob reconcile: removed %d orphaned blob(s)", reaped)
 	}
 }
 
@@ -98,6 +127,7 @@ func (s *Server) Router() http.Handler {
 		r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		})
+		r.Get("/version", s.handleVersion)
 		r.Get("/setup/status", s.handleSetupStatus)
 		r.Post("/setup", s.handleSetup)
 		r.Post("/login", s.handleLogin)

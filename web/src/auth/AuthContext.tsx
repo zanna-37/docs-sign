@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -21,7 +22,7 @@ interface AuthState {
 
 const AuthCtx = createContext<AuthState | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [loading, setLoading] = useState(true);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -68,12 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyLanguage(user?.language);
   }, [user]);
 
+  const value = useMemo<AuthState>(
+    () => ({ loading, needsSetup, user, setUser, refresh, logout }),
+    [loading, needsSetup, user, refresh, logout],
+  );
+
   return (
-    <AuthCtx.Provider
-      value={{ loading, needsSetup, user, setUser, refresh, logout }}
-    >
-      {children}
-    </AuthCtx.Provider>
+    <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>
   );
 }
 

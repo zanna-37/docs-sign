@@ -8,9 +8,11 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"docs-sign/internal/crypto"
 )
@@ -143,6 +145,75 @@ func (s *Store) Delete(relPath string) error {
 		return err
 	}
 	return nil
+}
+
+// ReconcileOrphans walks the store and removes leaked files whose last modification time is
+// before cutoff: .enc blobs whose relative path is absent from referenced (orphaned when a
+// row was deleted but its best-effort blob delete failed or was interrupted), and temp files
+// left behind by a write that crashed before its atomic rename. It returns the number of
+// files removed.
+//
+// The cutoff is a safety margin against the write/commit race: an upload writes its blob (via
+// a temp file) before committing the database row, so a fresh file can momentarily look
+// orphaned. Callers pass a cutoff comfortably older than any single request, so neither an
+// in-flight upload nor an in-progress write is ever reaped. Transient per-file errors are
+// recorded but do not abort the sweep; the first such error is returned alongside the count.
+func (s *Store) ReconcileOrphans(referenced map[string]struct{}, cutoff time.Time) (int, error) {
+	reaped := 0
+	var firstErr error
+	note := func(err error) {
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	walkErr := filepath.WalkDir(s.root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			note(err)
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		isBlob := strings.HasSuffix(name, ".enc")
+		// Write() names temp files ".<blobID>-*.tmp"; a crash before rename can orphan them.
+		isTempLeftover := strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".tmp")
+		if !isBlob && !isTempLeftover {
+			return nil
+		}
+		// A live blob is one a row still points at; temp leftovers are never referenced.
+		if isBlob {
+			rel, err := filepath.Rel(s.root, path)
+			if err != nil {
+				note(err)
+				return nil
+			}
+			// Database paths use forward slashes (see RelPath); normalize to match.
+			if _, ok := referenced[filepath.ToSlash(rel)]; ok {
+				return nil
+			}
+		}
+		info, err := d.Info()
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				note(err)
+			}
+			return nil
+		}
+		if !info.ModTime().Before(cutoff) {
+			return nil
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			note(err)
+			return nil
+		}
+		reaped++
+		return nil
+	})
+	if walkErr != nil {
+		note(walkErr)
+	}
+	return reaped, firstErr
 }
 
 // RemoveUserDir deletes all blobs for a user (used when an account is deleted).

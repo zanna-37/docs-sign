@@ -26,6 +26,10 @@ RUN npm run build
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 ARG TARGETOS
 ARG TARGETARCH
+# Build version is passed in (the .git dir is not in the build context, so `git describe`
+# can't run here). The CI workflow computes it; local builds default to "dev".
+ARG VERSION=dev
+ARG COMMIT=none
 WORKDIR /src
 # Module download is arch-independent; cache it across builds.
 COPY go.mod go.sum ./
@@ -38,7 +42,9 @@ COPY --from=web /src/internal/web/dist ./internal/web/dist
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -trimpath -buildvcs=false -ldflags "-s -w" -o /out/docs-sign ./cmd/docs-sign
+    go build -trimpath -buildvcs=false \
+    -ldflags "-s -w -X docs-sign/internal/version.Version=${VERSION} -X docs-sign/internal/version.Commit=${COMMIT}" \
+    -o /out/docs-sign ./cmd/docs-sign
 
 # ---- Stage 3: LinuxServer.io-style runtime image -----------------------------------
 # The baseimage provides s6-overlay (PID 1 + service supervision), the `abc` runtime user,
