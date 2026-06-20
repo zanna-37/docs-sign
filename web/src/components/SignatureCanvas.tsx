@@ -8,12 +8,12 @@ export function SignatureCanvas({
   className,
   style,
   ariaLabel,
-}: {
+}: Readonly<{
   bitmap: ImageBitmap | null;
   className?: string;
   style?: CSSProperties;
   ariaLabel?: string;
-}) {
+}>) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;

@@ -125,6 +125,8 @@ export function PageView({
           registerOverlay(el);
         }}
         className={`absolute inset-0 ${armed ? "cursor-copy" : ""}`}
+        role="application"
+        aria-label="Document page editing surface"
         onPointerDown={onOverlayPointerDown}
         onKeyDown={(e) => {
           // Escape (bubbling from a focused box) deselects. The overlay itself is not a tab

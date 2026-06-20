@@ -133,13 +133,13 @@ export function PlacementBox({
       onPointerDown={onMoveStart}
       onKeyDown={onKeyDown}
       onFocus={onSelect}
-      role="group"
+      role="application"
       tabIndex={0}
       aria-label="Signature placement"
       aria-roledescription="Draggable signature"
       className={
         selected
-          ? "cursor-move outline outline-2 outline-blue-500"
+          ? "cursor-move outline-2 outline-blue-500"
           : "cursor-move outline-1 outline-blue-300 hover:outline"
       }
     >

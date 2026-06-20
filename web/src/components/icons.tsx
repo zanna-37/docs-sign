@@ -1,4 +1,4 @@
-export function TrashIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function TrashIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -18,7 +18,7 @@ export function TrashIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-export function ChevronIcon({ className }: { className?: string }) {
+export function ChevronIcon({ className }: Readonly<{ className?: string }>) {
   return (
     <svg
       viewBox="0 0 24 24"

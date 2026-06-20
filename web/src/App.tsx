@@ -13,7 +13,7 @@ import { TrashPage } from "./pages/TrashPage";
 import { AccountPage } from "./pages/AccountPage";
 import { AdminPage } from "./pages/AdminPage";
 
-function FullScreen({ children }: { children: React.ReactNode }) {
+function FullScreen({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div className="flex min-h-full items-center justify-center p-6">
       {children}

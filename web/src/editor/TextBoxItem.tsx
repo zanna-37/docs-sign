@@ -149,7 +149,7 @@ export function TextBoxItem({
   const a11yProps: React.HTMLAttributes<HTMLDivElement> = editing
     ? {}
     : {
-        role: "group",
+        role: "application",
         tabIndex: 0,
         "aria-label": trimmed ? `Text box: ${trimmed.slice(0, 40)}` : "Empty text box",
         "aria-roledescription": "Editable text box",
@@ -176,6 +176,15 @@ export function TextBoxItem({
     overflow: "hidden",
   };
 
+  let boxClass: string;
+  if (editing) {
+    boxClass = "cursor-text outline-2 outline-blue-500";
+  } else if (selected) {
+    boxClass = "cursor-move outline-2 outline-blue-500";
+  } else {
+    boxClass = "cursor-move outline-1 outline-dashed outline-blue-300 hover:outline";
+  }
+
   return (
     <div
       style={{
@@ -195,13 +204,7 @@ export function TextBoxItem({
         onStartEdit();
       }}
       {...a11yProps}
-      className={
-        editing
-          ? "cursor-text outline outline-2 outline-blue-500"
-          : selected
-            ? "cursor-move outline outline-2 outline-blue-500"
-            : "cursor-move outline-1 outline-dashed outline-blue-300 hover:outline"
-      }
+      className={boxClass}
     >
       {editing ? (
         <textarea

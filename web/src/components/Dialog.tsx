@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -60,8 +61,10 @@ export function DialogProvider({ children }: Readonly<{ children: ReactNode }>) 
     });
   };
 
+  const api = useMemo<DialogApi>(() => ({ confirm, prompt }), [confirm, prompt]);
+
   return (
-    <DialogCtx.Provider value={{ confirm, prompt }}>
+    <DialogCtx.Provider value={api}>
       {children}
       {active && (
         <Modal

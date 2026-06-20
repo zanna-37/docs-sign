@@ -7,11 +7,11 @@ export function SignatureImage({
   id,
   alt,
   className,
-}: {
+}: Readonly<{
   id: string;
   alt?: string;
   className?: string;
-}) {
+}>) {
   const bitmap = useSignatureBitmap(id);
   if (!bitmap) {
     return <div className={`animate-pulse bg-gray-100 ${className ?? ""}`} />;

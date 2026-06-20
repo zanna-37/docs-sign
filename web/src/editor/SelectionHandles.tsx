@@ -14,9 +14,9 @@ interface Props {
 export function SelectionHandles({ onResizeStart, onRotateStart, onDelete }: Readonly<Props>) {
   return (
     <>
-      {CORNERS.map((c, i) => (
+      {CORNERS.map((c) => (
         <div
-          key={i}
+          key={`${c.sx}:${c.sy}`}
           aria-hidden
           onPointerDown={(e) => onResizeStart(e, c.sx, c.sy)}
           style={{ position: "absolute", ...c.pos, cursor: c.cursor, touchAction: "none" }}
