@@ -29,10 +29,10 @@ func Parse(args []string) (*Config, error) {
 		dataDir    = fs.String("data", "./data", "data directory for the SQLite database and encrypted blobs")
 		addr       = fs.String("addr", "127.0.0.1:8080", "HTTP listen address (serve plain HTTP behind a TLS-terminating reverse proxy)")
 		dev        = fs.Bool("dev", false, "development mode: non-Secure cookies for use with the Vite dev server")
-		idle       = fs.Duration("idle-timeout", 30*time.Minute, "session idle timeout")
-		sessionTTL = fs.Duration("session-timeout", 12*time.Hour, "absolute session timeout")
+		idle       = fs.Duration("idle-timeout", 120*time.Minute, "session idle timeout")
+		sessionTTL = fs.Duration("session-timeout", 24*time.Hour, "absolute session timeout")
 		dpi        = fs.Int("dpi", pdfproc.DefaultDPI, "rasterization DPI for flattened exports")
-		maxUpload  = fs.Int64("max-upload-mb", 64, "maximum upload size in megabytes")
+		maxUpload  = fs.Int64("max-upload-mb", 128, "maximum upload size in megabytes")
 		trashDays  = fs.Int("trash-days", 30, "days to keep items in the trash before permanent deletion")
 	)
 	if err := fs.Parse(args); err != nil {
