@@ -61,7 +61,7 @@ export function Layout() {
             <div className="hidden items-center gap-3 sm:flex">
               <NavLink
                 to="/account"
-                className="max-w-[10rem] truncate text-sm font-medium text-gray-600 hover:text-gray-900"
+                className="max-w-40 truncate text-sm font-medium text-gray-600 hover:text-gray-900"
               >
                 {user?.username}
               </NavLink>

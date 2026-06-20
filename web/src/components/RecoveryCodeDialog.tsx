@@ -13,7 +13,7 @@ function legacyCopy(text: string): boolean {
     ta.focus();
     ta.select();
     const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
+    ta.remove();
     return ok;
   } catch {
     return false;
@@ -25,10 +25,10 @@ function legacyCopy(text: string): boolean {
 export function RecoveryCodeDialog({
   code,
   onClose,
-}: {
+}: Readonly<{
   code: string;
   onClose: () => void;
-}) {
+}>) {
   const [copied, setCopied] = useState(false);
   const { t } = useTranslation();
 
