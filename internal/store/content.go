@@ -351,6 +351,25 @@ func (s *Store) PurgeExpired(ctx context.Context, cutoff time.Time) ([]string, e
 	return s.purgeTrashed(ctx, "deleted_at IS NOT NULL AND deleted_at < ?", cutoff.Unix())
 }
 
+// AllReferencedBlobPaths returns the set of every blob path referenced by a content row, in
+// any state. The blob reconciler diffs this against what is on disk to find orphans — blobs
+// whose row was already deleted but whose file was never removed (e.g. a HardDeleteItem whose
+// best-effort blob delete failed or was interrupted). No deleted_at filter is applied: a
+// trashed-but-not-yet-purged item still owns its blob and must be retained.
+func (s *Store) AllReferencedBlobPaths(ctx context.Context) (map[string]struct{}, error) {
+	refs := make(map[string]struct{})
+	for _, table := range []string{"signatures", "documents", "exports"} {
+		paths, err := s.collectStrings(ctx, `SELECT blob_path FROM `+table)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range paths {
+			refs[p] = struct{}{}
+		}
+	}
+	return refs, nil
+}
+
 // purgeTrashed permanently deletes the content rows matching where (a trusted, constant
 // predicate referencing only columns common to all three content tables) and returns the
 // blob paths removed. Trashed documents cascade to all their exports regardless of the
