@@ -1,4 +1,10 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+} from "react";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -85,17 +91,33 @@ export function Modal({
   title: string;
   children: ReactNode;
 }>) {
+  const titleId = useId();
+  useEffect(() => {
+    if (!open || !onClose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
+  // The backdrop is a presentational click-to-dismiss surface; keyboard users dismiss with
+  // Escape (above). The inner panel is the dialog and carries the accessible name.
   return (
     <div
+      role="presentation"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">{title}</h2>
+        <h2 id={titleId} className="mb-4 text-lg font-semibold text-gray-900">{title}</h2>
         {children}
       </div>
     </div>

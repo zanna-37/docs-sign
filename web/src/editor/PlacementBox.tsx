@@ -1,5 +1,13 @@
 import { SignatureCanvas } from "../components/SignatureCanvas";
-import { beginDrag, beginMove, beginRotate, rotate, type ResolveMove } from "./drag";
+import {
+  applyBoxKey,
+  beginDrag,
+  beginMove,
+  beginRotate,
+  RESIZE_STEP,
+  rotate,
+  type ResolveMove,
+} from "./drag";
 import { SelectionHandles } from "./SelectionHandles";
 import type { Placement } from "./types";
 
@@ -85,6 +93,26 @@ export function PlacementBox({
     beginRotate(p, toPoint, onChange);
   };
 
+  // Keyboard resize about the box center (page-bounded), honoring the aspect lock. The parent
+  // onChange re-clamps the center, so growth that overflows simply re-centers the box.
+  const resizeByKey = (grow: number, axis: "x" | "y") => {
+    const d = grow * RESIZE_STEP;
+    if (lockAspect && aspect > 0) {
+      const w = Math.max(12, p.w + d);
+      const h = w / aspect;
+      const s = Math.min(1, pageW / w, pageH / h);
+      onChange({ ...p, w: w * s, h: h * s });
+    } else if (axis === "x") {
+      onChange({ ...p, w: Math.min(pageW, Math.max(12, p.w + d)) });
+    } else {
+      onChange({ ...p, h: Math.min(pageH, Math.max(12, p.h + d)) });
+    }
+  };
+
+  // Keyboard equivalents of the pointer gestures, available whenever the box is focused.
+  const onKeyDown = (e: React.KeyboardEvent) =>
+    applyBoxKey(e, p, { onChange, onDelete, onActivate: onSelect, onResize: resizeByKey });
+
   const left = (p.cx - p.w / 2) * scale;
   const top = (p.cy - p.h / 2) * scale;
   const width = p.w * scale;
@@ -103,6 +131,12 @@ export function PlacementBox({
         touchAction: "none",
       }}
       onPointerDown={onMoveStart}
+      onKeyDown={onKeyDown}
+      onFocus={onSelect}
+      role="group"
+      tabIndex={0}
+      aria-label="Signature placement"
+      aria-roledescription="Draggable signature"
       className={
         selected
           ? "cursor-move outline outline-2 outline-blue-500"
