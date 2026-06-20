@@ -33,6 +33,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history + tags so `git describe` can derive the build version.
+          fetch-depth: 0
+
+      - name: Compute version
+        id: version
+        run: |
+          echo "value=$(git describe --tags --always --dirty)" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -65,6 +74,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.value }}
+            COMMIT=${{ steps.version.outputs.commit }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           # Keep the Docker Hub tag a clean multi-arch manifest (no extra

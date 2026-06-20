@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AppVersion } from "./AppVersion";
 import { Card } from "./ui";
 
 export function AuthShell({
@@ -21,6 +22,9 @@ export function AuthShell({
           {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
         </div>
         <Card className="p-6">{children}</Card>
+        <p className="mt-6 text-center text-xs text-gray-400">
+          <AppVersion />
+        </p>
       </div>
     </div>
   );

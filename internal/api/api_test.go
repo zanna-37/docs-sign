@@ -234,6 +234,25 @@ func assertBlobsEncrypted(t *testing.T, dataDir string) {
 	}
 }
 
+func TestVersionEndpoint(t *testing.T) {
+	renderer, err := pdfproc.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer renderer.Close()
+	e := newTestEnv(t, renderer)
+
+	// Public: reachable without authentication and returns the stamped build info
+	// (defaults when the test binary is built without ldflags).
+	v := decode[map[string]string](t, e.postReq(t, http.MethodGet, "/api/version"), 200)
+	if v["version"] == "" {
+		t.Fatalf("expected a version, got %+v", v)
+	}
+	if _, ok := v["commit"]; !ok {
+		t.Fatalf("expected a commit field, got %+v", v)
+	}
+}
+
 // postReq issues a request with the CSRF header and no body (used for GETs here).
 func (e *testEnv) postReq(t *testing.T, method, path string) *http.Response {
 	t.Helper()

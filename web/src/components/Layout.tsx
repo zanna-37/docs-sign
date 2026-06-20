@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthContext";
+import { AppVersion } from "./AppVersion";
 import { Button } from "./ui";
 
 function deskClass({ isActive }: { isActive: boolean }): string {
@@ -36,7 +37,7 @@ export function Layout() {
   ];
 
   return (
-    <div className="min-h-full">
+    <div className="flex min-h-full flex-col">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex items-center justify-between gap-4 py-3">
@@ -122,9 +123,12 @@ export function Layout() {
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <Outlet />
       </main>
+      <footer className="mx-auto w-full max-w-6xl px-4 py-4 text-center text-xs text-gray-400">
+        <AppVersion />
+      </footer>
     </div>
   );
 }

@@ -98,6 +98,7 @@ func (s *Server) Router() http.Handler {
 		r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		})
+		r.Get("/version", s.handleVersion)
 		r.Get("/setup/status", s.handleSetupStatus)
 		r.Post("/setup", s.handleSetup)
 		r.Post("/login", s.handleLogin)
