@@ -33,7 +33,7 @@ export function PlacementBox({
   onSelect,
   onChange,
   onDelete,
-}: Props) {
+}: Readonly<Props>) {
   const onMoveStart = (e: React.PointerEvent) => {
     e.stopPropagation();
     onSelect();

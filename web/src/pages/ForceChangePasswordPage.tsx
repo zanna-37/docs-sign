@@ -17,7 +17,7 @@ export function ForceChangePasswordPage() {
   const [busy, setBusy] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState("");
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError("");
     const invalid = validateNewPassword(password, confirm);

@@ -32,7 +32,7 @@ export function AdminPage() {
     void reload();
   }, []);
 
-  const create = async (e: React.FormEvent) => {
+  const create = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError("");
     setBusy(true);
@@ -177,7 +177,9 @@ export function AdminPage() {
                   {t("admin.created", { date: formatDate(u.createdAt) })}
                 </p>
               </div>
-              {u.id !== me?.id ? (
+              {u.id === me?.id ? (
+                <span className="text-xs text-gray-400">{t("admin.you")}</span>
+              ) : (
                 <div className="flex shrink-0 gap-1">
                   <Button variant="ghost" onClick={() => toggleStatus(u)}>
                     {u.status === "active"
@@ -191,8 +193,6 @@ export function AdminPage() {
                     {t("common.delete")}
                   </Button>
                 </div>
-              ) : (
-                <span className="text-xs text-gray-400">{t("admin.you")}</span>
               )}
             </div>
           ))}

@@ -15,7 +15,7 @@ export function RecoveryPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError("");
     setBusy(true);

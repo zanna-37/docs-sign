@@ -8,7 +8,7 @@ interface Props {
 
 // SelectionHandles renders the resize dots, rotate handle and delete button drawn over the
 // currently selected editor box (signature placement or text box).
-export function SelectionHandles({ onResizeStart, onRotateStart, onDelete }: Props) {
+export function SelectionHandles({ onResizeStart, onRotateStart, onDelete }: Readonly<Props>) {
   return (
     <>
       {CORNERS.map((c, i) => (

@@ -55,7 +55,7 @@ export function PageView({
   onTextDelete,
   onStartEditText,
   onStopEditText,
-}: Props) {
+}: Readonly<Props>) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 

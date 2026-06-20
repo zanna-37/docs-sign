@@ -79,12 +79,12 @@ export function Modal({
   onClose,
   title,
   children,
-}: {
+}: Readonly<{
   open: boolean;
   onClose?: () => void;
   title: string;
   children: ReactNode;
-}) {
+}>) {
   if (!open) return null;
   return (
     <div

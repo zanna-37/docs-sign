@@ -75,13 +75,13 @@ Then open `http://127.0.0.1:8080/` and create the admin account (first-run setup
 in the browser — no interactive terminal needed). The container serves plain HTTP; keep
 the published port on `127.0.0.1` and put TLS on a reverse proxy on the host.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `PUID` | `911` | User id the server runs as and that owns `/config`. |
-| `PGID` | `911` | Group id the server runs as. |
-| `TZ` | `Etc/UTC` | Container timezone (e.g. `Europe/Rome`). |
-| `UMASK` | `022` | File-creation mask for the server. |
-| `PORT` | `8080` | In-container listen port. If you change it, change the `-p` mapping's container side to match. |
+| Variable | Default   | Purpose                                                                                        |
+|----------|-----------|------------------------------------------------------------------------------------------------|
+| `PUID`   | `911`     | User id the server runs as and that owns `/config`.                                            |
+| `PGID`   | `911`     | Group id the server runs as.                                                                   |
+| `TZ`     | `Etc/UTC` | Container timezone (e.g. `Europe/Rome`).                                                       |
+| `UMASK`  | `022`     | File-creation mask for the server.                                                             |
+| `PORT`   | `8080`    | In-container listen port. If you change it, change the `-p` mapping's container side to match. |
 
 `PUID`/`PGID` default to `911` (the LinuxServer baseimage default); set them to match the
 owner of your bind-mounted `/config` so file permissions line up.
@@ -92,10 +92,10 @@ owner of your bind-mounted `/config` so file permissions line up.
 and pushes it to Docker Hub on every push to `main` (tags `latest` and `sha-<short>`) and
 on version tags `vX.Y.Z` (semver tags). It needs two repository secrets:
 
-| Secret | Purpose |
-| --- | --- |
+| Secret               | Purpose                                                                    |
+|----------------------|----------------------------------------------------------------------------|
 | `DOCKERHUB_USERNAME` | Docker Hub account; also used as the image namespace (`<user>/docs-sign`). |
-| `DOCKERHUB_TOKEN` | Docker Hub access token with read/write scope. |
+| `DOCKERHUB_TOKEN`    | Docker Hub access token with read/write scope.                             |
 
 ## License & third-party attribution
 

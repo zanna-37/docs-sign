@@ -5,7 +5,7 @@ import { cssFamily, drawText, LINE_HEIGHT, refit, TEXT_PAD, type TextBox } from 
 
 // TextDisplay renders the text on a canvas using the same routine as the export, so the
 // on-page preview position matches the flattened output exactly.
-function TextDisplay({ box, scale }: { box: TextBox; scale: number }) {
+function TextDisplay({ box, scale }: Readonly<{ box: TextBox; scale: number }>) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current;
@@ -57,7 +57,7 @@ export function TextBoxItem({
   onStartEdit,
   onStopEdit,
   onDelete,
-}: Props) {
+}: Readonly<Props>) {
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   // Focus and select all when entering edit mode (so typing replaces the default text).

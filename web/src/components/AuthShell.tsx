@@ -5,11 +5,11 @@ export function AuthShell({
   title,
   subtitle,
   children,
-}: {
+}: Readonly<{
   title: string;
   subtitle?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div className="flex min-h-full items-center justify-center p-6">
       <div className="w-full max-w-sm">

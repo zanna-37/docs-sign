@@ -31,7 +31,7 @@ type Active =
   | { type: "confirm"; opts: ConfirmOpts; resolve: (v: boolean) => void }
   | { type: "prompt"; opts: PromptOpts; resolve: (v: string | null) => void };
 
-export function DialogProvider({ children }: { children: ReactNode }) {
+export function DialogProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { t } = useTranslation();
   const [active, setActive] = useState<Active>(null);
   const [value, setValue] = useState("");
