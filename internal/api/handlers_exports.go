@@ -68,7 +68,7 @@ func (s *Server) handleExportFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteExport(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	if err := s.store.SoftDeleteExport(r.Context(), sess.UserID, chi.URLParam(r, "id")); err != nil {
+	if _, err := s.store.TrashNode(r.Context(), sess.UserID, store.KindExport, chi.URLParam(r, "id")); err != nil {
 		writeServiceError(w, err)
 		return
 	}

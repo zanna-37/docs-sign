@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log"
@@ -146,16 +147,21 @@ func (s *Server) Router() http.Handler {
 				r.Use(s.requirePasswordSet)
 				r.Post("/account/recovery-code", s.handleRegenerateRecovery)
 
+				r.Get("/folders", s.handleListFolders)
+				r.Post("/folders", s.handleCreateFolder)
+				r.Patch("/folders/{id}", s.handlePatchFolder)
+				r.Delete("/folders/{id}", s.handleDeleteFolder)
+
 				r.Get("/signatures", s.handleListSignatures)
 				r.Post("/signatures", s.handleUploadSignature)
 				r.Get("/signatures/{id}/image", s.handleSignatureImage)
-				r.Patch("/signatures/{id}", s.handleRenameSignature)
+				r.Patch("/signatures/{id}", s.handlePatchSignature)
 				r.Delete("/signatures/{id}", s.handleDeleteSignature)
 
 				r.Get("/documents", s.handleListDocuments)
 				r.Post("/documents", s.handleUploadDocument)
 				r.Get("/documents/{id}/file", s.handleDocumentFile)
-				r.Patch("/documents/{id}", s.handleRenameDocument)
+				r.Patch("/documents/{id}", s.handlePatchDocument)
 				r.Delete("/documents/{id}", s.handleDeleteDocument)
 				r.Post("/documents/{id}/sign", s.handleSignDocument)
 
@@ -164,9 +170,10 @@ func (s *Server) Router() http.Handler {
 				r.Delete("/exports/{id}", s.handleDeleteExport)
 
 				r.Get("/trash", s.handleListTrash)
+				r.Get("/trash/events/{eventId}", s.handleWalkTrash)
+				r.Delete("/trash/events/{eventId}", s.handlePurgeEvent)
 				r.Post("/trash/empty", s.handleEmptyTrash)
 				r.Post("/trash/{kind}/{id}/restore", s.handleRestoreTrash)
-				r.Delete("/trash/{kind}/{id}", s.handlePurgeTrashItem)
 
 				r.Route("/admin", func(r chi.Router) {
 					r.Use(s.requireAdmin)
@@ -345,9 +352,32 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, auth.ErrCannotDeleteSelf.Error())
 	case errors.Is(err, auth.ErrInvalidInput):
 		writeError(w, http.StatusBadRequest, "invalid input")
+	case errors.Is(err, store.ErrNameConflict):
+		writeError(w, http.StatusConflict, "a file or folder with that name already exists here")
+	case errors.Is(err, store.ErrInvalidMove):
+		writeError(w, http.StatusBadRequest, store.ErrInvalidMove.Error())
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not found")
 	default:
 		writeError(w, http.StatusInternalServerError, "internal error")
 	}
+}
+
+// nullStr wraps a string as a sql.NullString, treating "" as NULL (the root of a tree).
+func nullStr(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: s != ""}
+}
+
+// folderParam reads a folder id from the query string as a nullable value (absent = root).
+func folderParam(r *http.Request, key string) sql.NullString {
+	return nullStr(r.URL.Query().Get(key))
+}
+
+// ptrToNull maps an optional string (a JSON field that may be absent/null) to a nullable value;
+// a nil or empty pointer means the root of a tree.
+func ptrToNull(p *string) sql.NullString {
+	if p == nil {
+		return sql.NullString{}
+	}
+	return nullStr(*p)
 }

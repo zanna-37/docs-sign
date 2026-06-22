@@ -3,8 +3,13 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 )
+
+// ErrNameConflict is returned when an operation would leave two active siblings (folders or
+// items) sharing the same name in the same container.
+var ErrNameConflict = errors.New("store: name already in use")
 
 // Signature is an encrypted PNG signature owned by a user.
 type Signature struct {
@@ -15,6 +20,7 @@ type Signature struct {
 	ByteSize  int64
 	Width     int
 	Height    int
+	FolderID  sql.NullString // NULL = root of the signature tree
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -27,6 +33,7 @@ type Document struct {
 	BlobPath  string
 	ByteSize  int64
 	PageCount int
+	FolderID  sql.NullString // NULL = root of the document tree
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -43,11 +50,12 @@ type Export struct {
 	CreatedAt  time.Time
 }
 
-// Item kinds used by the trash API; each maps to one content table.
+// Item kinds used by the trash API; each maps to one table.
 const (
 	KindSignature = "signature"
 	KindDocument  = "document"
 	KindExport    = "export"
+	KindFolder    = "folder"
 )
 
 func tableForKind(kind string) (string, bool) {
@@ -58,27 +66,144 @@ func tableForKind(kind string) (string, bool) {
 		return "documents", true
 	case KindExport:
 		return "exports", true
+	case KindFolder:
+		return "folders", true
 	default:
 		return "", false
 	}
 }
 
-// --- Signatures ---
+// folderKindForItem maps an item kind to the folder tree it belongs to.
+func folderKindForItem(itemKind string) string {
+	if itemKind == KindSignature {
+		return KindSignature
+	}
+	return KindDocument
+}
 
-func (s *Store) CreateSignature(ctx context.Context, sig *Signature) error {
-	now := time.Now().Unix()
-	sig.CreatedAt, sig.UpdatedAt = unixToTime(now), unixToTime(now)
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO signatures (id, user_id, name, blob_path, byte_size, width, height, created_at, updated_at)
-		VALUES (?,?,?,?,?,?,?,?,?)`,
-		sig.ID, sig.UserID, sig.Name, sig.BlobPath, sig.ByteSize, sig.Width, sig.Height, now, now)
+// --- shared item helpers ---
+
+// validateFolder checks that folderID (when set) names an active folder owned by userID in the
+// tree for kind. A root placement (invalid/NULL folderID) is always valid.
+func validateFolder(ctx context.Context, q querier, userID, kind string, folderID sql.NullString) error {
+	if !folderID.Valid {
+		return nil
+	}
+	var k string
+	err := q.QueryRowContext(ctx,
+		`SELECT kind FROM folders WHERE id=? AND user_id=? AND deleted_at IS NULL`,
+		folderID.String, userID).Scan(&k)
+	if err == sql.ErrNoRows || (err == nil && k != kind) {
+		return ErrNotFound
+	}
 	return err
 }
 
-func (s *Store) ListSignatures(ctx context.Context, userID string) ([]Signature, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, user_id, name, blob_path, byte_size, width, height, created_at, updated_at
-		FROM signatures WHERE user_id=? AND deleted_at IS NULL ORDER BY created_at DESC`, userID)
+// itemNameTaken reports whether an active row in table (other than excludeID) already uses name
+// in the same folder for this user.
+func itemNameTaken(ctx context.Context, q querier, table, userID string, folderID sql.NullString, name, excludeID string) (bool, error) {
+	var n int
+	var err error
+	if folderID.Valid {
+		err = q.QueryRowContext(ctx,
+			`SELECT COUNT(1) FROM `+table+`
+			 WHERE user_id=? AND folder_id=? AND name=? AND deleted_at IS NULL AND id<>?`,
+			userID, folderID.String, name, excludeID).Scan(&n)
+	} else {
+		err = q.QueryRowContext(ctx,
+			`SELECT COUNT(1) FROM `+table+`
+			 WHERE user_id=? AND folder_id IS NULL AND name=? AND deleted_at IS NULL AND id<>?`,
+			userID, name, excludeID).Scan(&n)
+	}
+	return n > 0, err
+}
+
+// renameItem renames an active item, refusing a name already taken by an active sibling.
+func (s *Store) renameItem(ctx context.Context, table, userID, id, name string) error {
+	return s.withTx(ctx, func(tx *sql.Tx) error {
+		var folderID sql.NullString
+		err := tx.QueryRowContext(ctx,
+			`SELECT folder_id FROM `+table+` WHERE id=? AND user_id=? AND deleted_at IS NULL`,
+			id, userID).Scan(&folderID)
+		if err == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		taken, err := itemNameTaken(ctx, tx, table, userID, folderID, name, id)
+		if err != nil {
+			return err
+		}
+		if taken {
+			return ErrNameConflict
+		}
+		_, err = tx.ExecContext(ctx,
+			`UPDATE `+table+` SET name=?, updated_at=? WHERE id=? AND user_id=? AND deleted_at IS NULL`,
+			name, time.Now().Unix(), id, userID)
+		return err
+	})
+}
+
+// moveItem reparents an active item into folderID (root when invalid), refusing a destination
+// where the name is already taken.
+func (s *Store) moveItem(ctx context.Context, table, kind, userID, id string, folderID sql.NullString) error {
+	return s.withTx(ctx, func(tx *sql.Tx) error {
+		if err := validateFolder(ctx, tx, userID, folderKindForItem(kind), folderID); err != nil {
+			return err
+		}
+		var name string
+		err := tx.QueryRowContext(ctx,
+			`SELECT name FROM `+table+` WHERE id=? AND user_id=? AND deleted_at IS NULL`,
+			id, userID).Scan(&name)
+		if err == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		taken, err := itemNameTaken(ctx, tx, table, userID, folderID, name, id)
+		if err != nil {
+			return err
+		}
+		if taken {
+			return ErrNameConflict
+		}
+		_, err = tx.ExecContext(ctx,
+			`UPDATE `+table+` SET folder_id=?, updated_at=? WHERE id=? AND user_id=? AND deleted_at IS NULL`,
+			folderID, time.Now().Unix(), id, userID)
+		return err
+	})
+}
+
+// --- Signatures ---
+
+func (s *Store) CreateSignature(ctx context.Context, sig *Signature) error {
+	return s.withTx(ctx, func(tx *sql.Tx) error {
+		if err := validateFolder(ctx, tx, sig.UserID, KindSignature, sig.FolderID); err != nil {
+			return err
+		}
+		taken, err := itemNameTaken(ctx, tx, "signatures", sig.UserID, sig.FolderID, sig.Name, "")
+		if err != nil {
+			return err
+		}
+		if taken {
+			return ErrNameConflict
+		}
+		now := time.Now().Unix()
+		sig.CreatedAt, sig.UpdatedAt = unixToTime(now), unixToTime(now)
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO signatures (id, user_id, name, blob_path, byte_size, width, height, folder_id, created_at, updated_at)
+			VALUES (?,?,?,?,?,?,?,?,?,?)`,
+			sig.ID, sig.UserID, sig.Name, sig.BlobPath, sig.ByteSize, sig.Width, sig.Height, sig.FolderID, now, now)
+		return err
+	})
+}
+
+func (s *Store) ListSignatures(ctx context.Context, userID string, folderID sql.NullString) ([]Signature, error) {
+	rows, err := s.queryItemsInFolder(ctx, `
+		SELECT id, user_id, name, blob_path, byte_size, width, height, folder_id, created_at, updated_at
+		FROM signatures`, userID, folderID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +213,7 @@ func (s *Store) ListSignatures(ctx context.Context, userID string) ([]Signature,
 		var sig Signature
 		var created, upd int64
 		if err := rows.Scan(&sig.ID, &sig.UserID, &sig.Name, &sig.BlobPath, &sig.ByteSize,
-			&sig.Width, &sig.Height, &created, &upd); err != nil {
+			&sig.Width, &sig.Height, &sig.FolderID, &created, &upd); err != nil {
 			return nil, err
 		}
 		sig.CreatedAt, sig.UpdatedAt = unixToTime(created), unixToTime(upd)
@@ -99,12 +224,12 @@ func (s *Store) ListSignatures(ctx context.Context, userID string) ([]Signature,
 
 func (s *Store) GetSignature(ctx context.Context, userID, id string) (*Signature, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, user_id, name, blob_path, byte_size, width, height, created_at, updated_at
+		SELECT id, user_id, name, blob_path, byte_size, width, height, folder_id, created_at, updated_at
 		FROM signatures WHERE id=? AND user_id=? AND deleted_at IS NULL`, id, userID)
 	var sig Signature
 	var created, upd int64
 	err := row.Scan(&sig.ID, &sig.UserID, &sig.Name, &sig.BlobPath, &sig.ByteSize,
-		&sig.Width, &sig.Height, &created, &upd)
+		&sig.Width, &sig.Height, &sig.FolderID, &created, &upd)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -116,29 +241,41 @@ func (s *Store) GetSignature(ctx context.Context, userID, id string) (*Signature
 }
 
 func (s *Store) RenameSignature(ctx context.Context, userID, id, name string) error {
-	return s.renameRow(ctx, "signatures", userID, id, name)
+	return s.renameItem(ctx, "signatures", userID, id, name)
 }
 
-func (s *Store) SoftDeleteSignature(ctx context.Context, userID, id string) error {
-	return s.softDeleteRow(ctx, "signatures", userID, id)
+func (s *Store) MoveSignature(ctx context.Context, userID, id string, folderID sql.NullString) error {
+	return s.moveItem(ctx, "signatures", KindSignature, userID, id, folderID)
 }
 
 // --- Documents ---
 
 func (s *Store) CreateDocument(ctx context.Context, d *Document) error {
-	now := time.Now().Unix()
-	d.CreatedAt, d.UpdatedAt = unixToTime(now), unixToTime(now)
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO documents (id, user_id, name, blob_path, byte_size, page_count, created_at, updated_at)
-		VALUES (?,?,?,?,?,?,?,?)`,
-		d.ID, d.UserID, d.Name, d.BlobPath, d.ByteSize, d.PageCount, now, now)
-	return err
+	return s.withTx(ctx, func(tx *sql.Tx) error {
+		if err := validateFolder(ctx, tx, d.UserID, KindDocument, d.FolderID); err != nil {
+			return err
+		}
+		taken, err := itemNameTaken(ctx, tx, "documents", d.UserID, d.FolderID, d.Name, "")
+		if err != nil {
+			return err
+		}
+		if taken {
+			return ErrNameConflict
+		}
+		now := time.Now().Unix()
+		d.CreatedAt, d.UpdatedAt = unixToTime(now), unixToTime(now)
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO documents (id, user_id, name, blob_path, byte_size, page_count, folder_id, created_at, updated_at)
+			VALUES (?,?,?,?,?,?,?,?,?)`,
+			d.ID, d.UserID, d.Name, d.BlobPath, d.ByteSize, d.PageCount, d.FolderID, now, now)
+		return err
+	})
 }
 
-func (s *Store) ListDocuments(ctx context.Context, userID string) ([]Document, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, user_id, name, blob_path, byte_size, page_count, created_at, updated_at
-		FROM documents WHERE user_id=? AND deleted_at IS NULL ORDER BY created_at DESC`, userID)
+func (s *Store) ListDocuments(ctx context.Context, userID string, folderID sql.NullString) ([]Document, error) {
+	rows, err := s.queryItemsInFolder(ctx, `
+		SELECT id, user_id, name, blob_path, byte_size, page_count, folder_id, created_at, updated_at
+		FROM documents`, userID, folderID)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +285,7 @@ func (s *Store) ListDocuments(ctx context.Context, userID string) ([]Document, e
 		var d Document
 		var created, upd int64
 		if err := rows.Scan(&d.ID, &d.UserID, &d.Name, &d.BlobPath, &d.ByteSize,
-			&d.PageCount, &created, &upd); err != nil {
+			&d.PageCount, &d.FolderID, &created, &upd); err != nil {
 			return nil, err
 		}
 		d.CreatedAt, d.UpdatedAt = unixToTime(created), unixToTime(upd)
@@ -159,12 +296,12 @@ func (s *Store) ListDocuments(ctx context.Context, userID string) ([]Document, e
 
 func (s *Store) GetDocument(ctx context.Context, userID, id string) (*Document, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, user_id, name, blob_path, byte_size, page_count, created_at, updated_at
+		SELECT id, user_id, name, blob_path, byte_size, page_count, folder_id, created_at, updated_at
 		FROM documents WHERE id=? AND user_id=? AND deleted_at IS NULL`, id, userID)
 	var d Document
 	var created, upd int64
 	err := row.Scan(&d.ID, &d.UserID, &d.Name, &d.BlobPath, &d.ByteSize,
-		&d.PageCount, &created, &upd)
+		&d.PageCount, &d.FolderID, &created, &upd)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -176,11 +313,24 @@ func (s *Store) GetDocument(ctx context.Context, userID, id string) (*Document, 
 }
 
 func (s *Store) RenameDocument(ctx context.Context, userID, id, name string) error {
-	return s.renameRow(ctx, "documents", userID, id, name)
+	return s.renameItem(ctx, "documents", userID, id, name)
 }
 
-func (s *Store) SoftDeleteDocument(ctx context.Context, userID, id string) error {
-	return s.softDeleteRow(ctx, "documents", userID, id)
+func (s *Store) MoveDocument(ctx context.Context, userID, id string, folderID sql.NullString) error {
+	return s.moveItem(ctx, "documents", KindDocument, userID, id, folderID)
+}
+
+// queryItemsInFolder lists active items directly inside folderID (root when invalid), newest
+// first. The select must end at the table name; this appends the folder predicate.
+func (s *Store) queryItemsInFolder(ctx context.Context, selectSQL, userID string, folderID sql.NullString) (*sql.Rows, error) {
+	if folderID.Valid {
+		return s.db.QueryContext(ctx,
+			selectSQL+` WHERE user_id=? AND folder_id=? AND deleted_at IS NULL ORDER BY created_at DESC`,
+			userID, folderID.String)
+	}
+	return s.db.QueryContext(ctx,
+		selectSQL+` WHERE user_id=? AND folder_id IS NULL AND deleted_at IS NULL ORDER BY created_at DESC`,
+		userID)
 }
 
 // --- Exports ---
@@ -235,14 +385,10 @@ func (s *Store) GetExport(ctx context.Context, userID, id string) (*Export, erro
 	return &e, nil
 }
 
-func (s *Store) SoftDeleteExport(ctx context.Context, userID, id string) error {
-	return s.softDeleteRow(ctx, "exports", userID, id)
-}
-
 // DeleteExportsForDocument permanently removes every export of a document (any state) and
 // returns their blob paths. Used when a document is permanently deleted or purged.
 func (s *Store) DeleteExportsForDocument(ctx context.Context, userID, documentID string) ([]string, error) {
-	paths, err := s.collectStrings(ctx,
+	paths, err := collectStrings(ctx, s.db,
 		`SELECT blob_path FROM exports WHERE user_id=? AND document_id=?`, userID, documentID)
 	if err != nil {
 		return nil, err
@@ -254,112 +400,42 @@ func (s *Store) DeleteExportsForDocument(ctx context.Context, userID, documentID
 	return paths, nil
 }
 
-// --- Trash ---
-
-// TrashItem is one soft-deleted content item across all kinds.
-type TrashItem struct {
-	ID        string
-	Kind      string
-	Name      string
-	ByteSize  int64
-	DeletedAt time.Time
-}
-
-// ListTrash returns all soft-deleted items for a user, newest first.
-func (s *Store) ListTrash(ctx context.Context, userID string) ([]TrashItem, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, 'signature' AS kind, name, byte_size, deleted_at FROM signatures WHERE user_id=? AND deleted_at IS NOT NULL
-		UNION ALL
-		SELECT id, 'document', name, byte_size, deleted_at FROM documents WHERE user_id=? AND deleted_at IS NOT NULL
-		UNION ALL
-		SELECT id, 'export', name, byte_size, deleted_at FROM exports WHERE user_id=? AND deleted_at IS NOT NULL
-		ORDER BY deleted_at DESC`, userID, userID, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []TrashItem
-	for rows.Next() {
-		var it TrashItem
-		var del int64
-		if err := rows.Scan(&it.ID, &it.Kind, &it.Name, &it.ByteSize, &del); err != nil {
-			return nil, err
-		}
-		it.DeletedAt = unixToTime(del)
-		out = append(out, it)
-	}
-	return out, rows.Err()
-}
-
-// RestoreItem brings a soft-deleted item back to active.
-func (s *Store) RestoreItem(ctx context.Context, userID, kind, id string) error {
+// FindActiveItem returns the id of the active item named name inside folderID (root when
+// invalid), reporting whether one exists. Used to resolve an "overwrite" upload.
+func (s *Store) FindActiveItem(ctx context.Context, userID, kind string, folderID sql.NullString, name string) (string, bool, error) {
 	table, ok := tableForKind(kind)
 	if !ok {
-		return ErrNotFound
+		return "", false, ErrNotFound
 	}
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE `+table+` SET deleted_at=NULL WHERE id=? AND user_id=? AND deleted_at IS NOT NULL`, id, userID)
-	if err != nil {
-		return err
+	var id string
+	var err error
+	if folderID.Valid {
+		err = s.db.QueryRowContext(ctx,
+			`SELECT id FROM `+table+` WHERE user_id=? AND folder_id=? AND name=? AND deleted_at IS NULL LIMIT 1`,
+			userID, folderID.String, name).Scan(&id)
+	} else {
+		err = s.db.QueryRowContext(ctx,
+			`SELECT id FROM `+table+` WHERE user_id=? AND folder_id IS NULL AND name=? AND deleted_at IS NULL LIMIT 1`,
+			userID, name).Scan(&id)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-// HardDeleteItem permanently removes a single trashed item and returns the blob paths to
-// delete (for a document, this includes all of its exports).
-func (s *Store) HardDeleteItem(ctx context.Context, userID, kind, id string) ([]string, error) {
-	table, ok := tableForKind(kind)
-	if !ok {
-		return nil, ErrNotFound
-	}
-	var blobPath string
-	err := s.db.QueryRowContext(ctx,
-		`SELECT blob_path FROM `+table+` WHERE id=? AND user_id=? AND deleted_at IS NOT NULL`, id, userID).Scan(&blobPath)
 	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
+		return "", false, nil
 	}
 	if err != nil {
-		return nil, err
+		return "", false, err
 	}
-
-	var paths []string
-	if kind == KindDocument {
-		exp, err := s.DeleteExportsForDocument(ctx, userID, id)
-		if err != nil {
-			return nil, err
-		}
-		paths = append(paths, exp...)
-	}
-	if _, err := s.db.ExecContext(ctx,
-		`DELETE FROM `+table+` WHERE id=? AND user_id=?`, id, userID); err != nil {
-		return nil, err
-	}
-	return append(paths, blobPath), nil
+	return id, true, nil
 }
 
-// EmptyTrash permanently removes every trashed item for a user, returning blob paths.
-func (s *Store) EmptyTrash(ctx context.Context, userID string) ([]string, error) {
-	return s.purgeTrashed(ctx, "user_id=? AND deleted_at IS NOT NULL", userID)
-}
-
-// PurgeExpired permanently removes items trashed before cutoff (across all users) and
-// returns their blob paths so the caller can delete the encrypted files.
-func (s *Store) PurgeExpired(ctx context.Context, cutoff time.Time) ([]string, error) {
-	return s.purgeTrashed(ctx, "deleted_at IS NOT NULL AND deleted_at < ?", cutoff.Unix())
-}
-
-// AllReferencedBlobPaths returns the set of every blob path referenced by a content row, in
-// any state. The blob reconciler diffs this against what is on disk to find orphans — blobs
-// whose row was already deleted but whose file was never removed (e.g. a HardDeleteItem whose
-// best-effort blob delete failed or was interrupted). No deleted_at filter is applied: a
-// trashed-but-not-yet-purged item still owns its blob and must be retained.
+// AllReferencedBlobPaths returns the set of every blob path referenced by a content row, in any
+// state. The blob reconciler diffs this against what is on disk to find orphans — blobs whose
+// row was already deleted but whose file was never removed (e.g. a hard delete whose best-effort
+// blob delete failed or was interrupted). No deleted_at filter is applied: a trashed-but-not-yet-
+// purged item still owns its blob and must be retained.
 func (s *Store) AllReferencedBlobPaths(ctx context.Context) (map[string]struct{}, error) {
 	refs := make(map[string]struct{})
 	for _, table := range []string{"signatures", "documents", "exports"} {
-		paths, err := s.collectStrings(ctx, `SELECT blob_path FROM `+table)
+		paths, err := collectStrings(ctx, s.db, `SELECT blob_path FROM `+table)
 		if err != nil {
 			return nil, err
 		}
@@ -370,116 +446,13 @@ func (s *Store) AllReferencedBlobPaths(ctx context.Context) (map[string]struct{}
 	return refs, nil
 }
 
-// purgeTrashed permanently deletes the content rows matching where (a trusted, constant
-// predicate referencing only columns common to all three content tables) and returns the
-// blob paths removed. Trashed documents cascade to all their exports regardless of the
-// exports' own state. The deletes are set-based: a fixed number of statements regardless of
-// how many rows match.
-func (s *Store) purgeTrashed(ctx context.Context, where string, arg any) ([]string, error) {
-	var paths []string
-
-	// Documents first, cascading their exports regardless of the exports' state.
-	type doc struct{ id, blob string }
-	var docs []doc
-	rows, err := s.db.QueryContext(ctx, `SELECT id, blob_path FROM documents WHERE `+where, arg)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var d doc
-		if err := rows.Scan(&d.id, &d.blob); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		docs = append(docs, d)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	for _, d := range docs {
-		exp, err := s.collectStrings(ctx, `SELECT blob_path FROM exports WHERE document_id=?`, d.id)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := s.db.ExecContext(ctx, `DELETE FROM exports WHERE document_id=?`, d.id); err != nil {
-			return nil, err
-		}
-		paths = append(paths, exp...)
-		paths = append(paths, d.blob)
-	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM documents WHERE `+where, arg); err != nil {
-		return nil, err
-	}
-
-	// Standalone trashed signatures and exports.
-	for _, table := range []string{"signatures", "exports"} {
-		p, err := s.collectStrings(ctx, `SELECT blob_path FROM `+table+` WHERE `+where, arg)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := s.db.ExecContext(ctx, `DELETE FROM `+table+` WHERE `+where, arg); err != nil {
-			return nil, err
-		}
-		paths = append(paths, p...)
-	}
-	return paths, nil
-}
-
-// DeleteUserContent removes all of a user's content (any state) without deleting the user
-// row. Used by destructive admin reset.
+// DeleteUserContent removes all of a user's content (any state) without deleting the user row.
+// Used by destructive admin reset.
 func (s *Store) DeleteUserContent(ctx context.Context, userID string) error {
-	for _, table := range []string{"exports", "documents", "signatures"} {
+	for _, table := range []string{"exports", "documents", "signatures", "folders", "trash_events"} {
 		if _, err := s.db.ExecContext(ctx, `DELETE FROM `+table+` WHERE user_id=?`, userID); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// --- shared helpers ---
-
-func (s *Store) collectStrings(ctx context.Context, query string, args ...any) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []string
-	for rows.Next() {
-		var v string
-		if err := rows.Scan(&v); err != nil {
-			return nil, err
-		}
-		out = append(out, v)
-	}
-	return out, rows.Err()
-}
-
-// renameRow updates the name of an active, user-owned row.
-func (s *Store) renameRow(ctx context.Context, table, userID, id, name string) error {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE `+table+` SET name=?, updated_at=? WHERE id=? AND user_id=? AND deleted_at IS NULL`,
-		name, time.Now().Unix(), id, userID)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-// softDeleteRow moves an active, user-owned row to trash.
-func (s *Store) softDeleteRow(ctx context.Context, table, userID, id string) error {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE `+table+` SET deleted_at=? WHERE id=? AND user_id=? AND deleted_at IS NULL`,
-		time.Now().Unix(), id, userID)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
 	}
 	return nil
 }
