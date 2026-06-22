@@ -1,8 +1,12 @@
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  // The parsed response body, so callers can read structured payloads on non-2xx replies
+  // (e.g. the conflict list returned with 409 from a restore).
+  data: unknown;
+  constructor(status: number, message: string, data?: unknown) {
     super(message);
     this.status = status;
+    this.data = data;
     this.name = "ApiError";
   }
 }
@@ -29,7 +33,7 @@ async function asJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) {
-    throw new ApiError(res.status, data?.error || res.statusText);
+    throw new ApiError(res.status, data?.error || res.statusText, data);
   }
   return data as T;
 }
