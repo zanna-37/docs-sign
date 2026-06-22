@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { validateNewPassword } from "../lib/validation";
 import { AuthShell } from "../components/AuthShell";
 import { RecoveryCodeDialog } from "../components/RecoveryCodeDialog";
-import { Button, ErrorText, Field, Input } from "../components/ui";
+import { Button, ErrorText, Field, PasswordInput } from "../components/ui";
 
 // Shown when the session is flagged must-change-password (first login or after recovery).
 export function ForceChangePasswordPage() {
@@ -46,8 +46,7 @@ export function ForceChangePasswordPage() {
     <AuthShell title={t("forceChange.title")} subtitle={t("forceChange.subtitle")}>
       <form onSubmit={submit} className="space-y-4">
         <Field label={t("common.newPassword")}>
-          <Input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoFocus
@@ -56,8 +55,7 @@ export function ForceChangePasswordPage() {
           />
         </Field>
         <Field label={t("common.confirmPassword")}>
-          <Input
-            type="password"
+          <PasswordInput
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"

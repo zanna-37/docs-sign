@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { validateNewPassword } from "../lib/validation";
 import { AuthShell } from "../components/AuthShell";
 import { RecoveryCodeDialog } from "../components/RecoveryCodeDialog";
-import { Button, ErrorText, Field, Input } from "../components/ui";
+import { Button, ErrorText, Field, Input, PasswordInput } from "../components/ui";
 
 export function SetupPage() {
   const { refresh } = useAuth();
@@ -52,8 +52,7 @@ export function SetupPage() {
           />
         </Field>
         <Field label={t("common.password")}>
-          <Input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
@@ -61,8 +60,7 @@ export function SetupPage() {
           />
         </Field>
         <Field label={t("common.confirmPassword")}>
-          <Input
-            type="password"
+          <PasswordInput
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"

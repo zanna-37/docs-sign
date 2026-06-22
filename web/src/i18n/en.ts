@@ -23,6 +23,8 @@ const en = {
     password: "Password",
     newPassword: "New password",
     confirmPassword: "Confirm password",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     loading: "Loading…",
     failedLoad: "Failed to load.",
     uploadFailed: "Upload failed.",

@@ -5,7 +5,7 @@ import { api, errMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { User } from "../api/types";
 import { AuthShell } from "../components/AuthShell";
-import { Button, ErrorText, Field, Input } from "../components/ui";
+import { Button, ErrorText, Field, Input, PasswordInput } from "../components/ui";
 
 export function LoginPage() {
   const { setUser } = useAuth();
@@ -44,8 +44,7 @@ export function LoginPage() {
           />
         </Field>
         <Field label={t("common.password")}>
-          <Input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"

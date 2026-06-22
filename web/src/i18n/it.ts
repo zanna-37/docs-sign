@@ -25,6 +25,8 @@ const it: Dict = {
     password: "Password",
     newPassword: "Nuova password",
     confirmPassword: "Conferma password",
+    showPassword: "Mostra password",
+    hidePassword: "Nascondi password",
     loading: "Caricamento…",
     failedLoad: "Caricamento non riuscito.",
     uploadFailed: "Caricamento non riuscito.",

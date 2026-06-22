@@ -7,7 +7,7 @@ import { applyLanguage } from "../i18n";
 import { validateNewPassword } from "../lib/validation";
 import { useDialog } from "../components/Dialog";
 import { RecoveryCodeDialog } from "../components/RecoveryCodeDialog";
-import { Button, Card, ErrorText, Field, Input } from "../components/ui";
+import { Button, Card, ErrorText, Field, Input, PasswordInput } from "../components/ui";
 
 function Notice({ children }: Readonly<{ children: React.ReactNode }>) {
   if (!children) return null;
@@ -161,16 +161,14 @@ export function AccountPage() {
         </h2>
         <form onSubmit={changePassword} className="space-y-4">
           <Field label={t("common.newPassword")}>
-            <Input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
           </Field>
           <Field label={t("common.confirmPassword")}>
-            <Input
-              type="password"
+            <PasswordInput
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete="new-password"

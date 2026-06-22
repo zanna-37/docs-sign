@@ -2,10 +2,13 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
+import { EyeIcon, EyeOffIcon } from "./icons";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -39,6 +42,32 @@ export function Input({
       className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${className}`}
       {...props}
     />
+  );
+}
+
+export function PasswordInput({
+  className = "",
+  ...props
+}: Readonly<InputHTMLAttributes<HTMLInputElement>>) {
+  const { t } = useTranslation();
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        type={visible ? "text" : "password"}
+        className={`pr-10 ${className}`}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? t("common.hidePassword") : t("common.showPassword")}
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+      >
+        {visible ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+    </div>
   );
 }
 
