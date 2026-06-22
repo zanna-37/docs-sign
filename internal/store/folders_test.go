@@ -470,3 +470,89 @@ func mustList(t *testing.T, fn func(context.Context, string, sql.NullString) ([]
 	}
 	return list
 }
+
+// Restoring a folder that merges into an existing same-name folder must surface conflicts only
+// for the files that collide, leaving the non-colliding ones to merge, and honor per-file
+// resolutions inside the merge.
+func TestRestoreFolderMergeWithFileConflict(t *testing.T) {
+	ctx := context.Background()
+
+	// trashed folder F holding {a.pdf, b.pdf}; active folder F holding a.pdf.
+	setup := func(t *testing.T) (*Store, string, sql.NullString, *Document) {
+		s := newTestStore(t)
+		uid := mustUser(t, s)
+		f := mkFolder(t, s, uid, KindDocument, root, "F")
+		aTrashed := mkDoc(t, s, uid, nullString(f), "a.pdf")
+		mkDoc(t, s, uid, nullString(f), "b.pdf")
+		if _, err := s.TrashNode(ctx, uid, KindFolder, f); err != nil {
+			t.Fatal(err)
+		}
+		activeF := nullString(mkFolder(t, s, uid, KindDocument, root, "F"))
+		mkDoc(t, s, uid, activeF, "a.pdf")
+		return s, uid, activeF, aTrashed
+	}
+
+	t.Run("unresolved conflict rolls the whole merge back", func(t *testing.T) {
+		s, uid, activeF, aTrashed := setup(t)
+		conflicts, err := s.RestoreNode(ctx, uid, KindFolder, folderOf(t, s, uid, aTrashed.ID), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(conflicts) != 1 || conflicts[0].Name != "a.pdf" || conflicts[0].DestPath != "/F" {
+			t.Fatalf("want one a.pdf conflict at /F, got %+v", conflicts)
+		}
+		// Nothing merged: active F still holds only its own a.pdf, event intact.
+		if len(mustList(t, s.ListDocuments, uid, activeF)) != 1 {
+			t.Fatal("active folder should be unchanged after rollback")
+		}
+		if ev, _ := s.ListTrashEvents(ctx, uid); len(ev) != 1 {
+			t.Fatal("trashed folder event should remain intact")
+		}
+	})
+
+	t.Run("skip merges the rest and keeps the conflicting file trashed", func(t *testing.T) {
+		s, uid, activeF, aTrashed := setup(t)
+		conflicts, err := s.RestoreNode(ctx, uid, KindFolder, folderOf(t, s, uid, aTrashed.ID),
+			map[string]Resolution{aTrashed.ID: {Action: ResolveSkip}})
+		if err != nil || len(conflicts) != 0 {
+			t.Fatalf("skip: conflicts=%v err=%v", conflicts, err)
+		}
+		names := docNames(t, s, uid, activeF)
+		if !names["a.pdf"] || !names["b.pdf"] || len(names) != 2 {
+			t.Fatalf("b.pdf should merge in, a.pdf stay, got %v", names)
+		}
+		// The trashed folder still holds the skipped a.pdf, so its event survives.
+		if ev, _ := s.ListTrashEvents(ctx, uid); len(ev) != 1 {
+			t.Fatalf("event with the skipped file should remain, got %+v", ev)
+		}
+	})
+
+	t.Run("override displaces the active file and merges the folder away", func(t *testing.T) {
+		s, uid, activeF, aTrashed := setup(t)
+		conflicts, err := s.RestoreNode(ctx, uid, KindFolder, folderOf(t, s, uid, aTrashed.ID),
+			map[string]Resolution{aTrashed.ID: {Action: ResolveOverride}})
+		if err != nil || len(conflicts) != 0 {
+			t.Fatalf("override: conflicts=%v err=%v", conflicts, err)
+		}
+		if names := docNames(t, s, uid, activeF); !names["a.pdf"] || !names["b.pdf"] || len(names) != 2 {
+			t.Fatalf("folder should hold both files after override, got %v", names)
+		}
+		// Original folder event fully merged away; only the displaced file's new event remains.
+		ev, _ := s.ListTrashEvents(ctx, uid)
+		if len(ev) != 1 || ev[0].RootKind != KindDocument {
+			t.Fatalf("only the displaced file's event should remain, got %+v", ev)
+		}
+	})
+}
+
+// folderOf returns the (possibly trashed) folder id that contains an item — used to address a
+// trashed folder by its root for restore.
+func folderOf(t *testing.T, s *Store, uid, itemID string) string {
+	t.Helper()
+	var folderID sql.NullString
+	if err := s.db.QueryRowContext(context.Background(),
+		`SELECT folder_id FROM documents WHERE id=? AND user_id=?`, itemID, uid).Scan(&folderID); err != nil {
+		t.Fatal(err)
+	}
+	return folderID.String
+}
