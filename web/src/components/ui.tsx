@@ -130,11 +130,14 @@ export function Modal({
   }, [onClose]);
 
   if (!open) return null;
+  // A native modal <dialog> centers itself in the viewport via the UA stylesheet's
+  // `margin: auto`. Tailwind's Preflight resets every element's margin to 0, which
+  // clobbers that and pins the dialog to the top-left, so restore it with m-auto.
   return (
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className="w-full max-w-md border-0 bg-transparent p-0 backdrop:bg-black/40"
+      className="m-auto w-full max-w-md border-0 bg-transparent p-0 backdrop:bg-black/40"
     >
       <div className="rounded-xl bg-white p-6 shadow-xl">
         <h2 id={titleId} className="mb-4 text-lg font-semibold text-gray-900">{title}</h2>
