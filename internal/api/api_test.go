@@ -30,6 +30,7 @@ import (
 
 type testEnv struct {
 	ts      *httptest.Server
+	srv     *Server
 	client  *http.Client
 	dataDir string
 	sigPNG  []byte
@@ -61,7 +62,7 @@ func newTestEnv(t *testing.T, renderer *pdfproc.Renderer) *testEnv {
 	t.Cleanup(ts.Close)
 
 	jar, _ := cookiejar.New(nil)
-	return &testEnv{ts: ts, client: &http.Client{Jar: jar}, dataDir: dataDir, sigPNG: makeSignaturePNG()}
+	return &testEnv{ts: ts, srv: srv, client: &http.Client{Jar: jar}, dataDir: dataDir, sigPNG: makeSignaturePNG()}
 }
 
 func makeSignaturePNG() []byte {
