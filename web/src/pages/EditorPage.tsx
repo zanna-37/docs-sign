@@ -64,8 +64,8 @@ export function EditorPage() {
     (async () => {
       try {
         const [docList, sigRes] = await Promise.all([
-          api.get<{ documents: DocumentItem[] }>("/documents"),
-          api.get<{ signatures: Signature[] }>("/signatures"),
+          api.get<{ documents: DocumentItem[] }>("/documents?all=true"),
+          api.get<{ signatures: Signature[] }>("/signatures?all=true"),
         ]);
         if (!active) return;
         setDocName(docList.documents?.find((d) => d.id === id)?.name ?? "");

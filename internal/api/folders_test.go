@@ -260,6 +260,42 @@ func listDocs(t *testing.T, e *testEnv, query string) []documentDTO {
 	}](t, e.postReq(t, http.MethodGet, "/api/documents"+query), 200).Documents
 }
 
+func listSigs(t *testing.T, e *testEnv, query string) []signatureDTO {
+	t.Helper()
+	return decode[struct {
+		Signatures []signatureDTO `json:"signatures"`
+	}](t, e.postReq(t, http.MethodGet, "/api/signatures"+query), 200).Signatures
+}
+
+// The signing editor needs every signature and document regardless of folder; ?all=true must
+// return foldered items that folder-scoped listing (root) hides.
+func TestFlatListingIncludesFolderedItems(t *testing.T) {
+	renderer, err := pdfproc.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer renderer.Close()
+	e := newTestEnv(t, renderer)
+	e.setupAndLogin(t)
+
+	sf := decode[folderDTO](t, e.postJSON(t, "/api/folders", map[string]string{"kind": "signature", "name": "Sigs"}), 201)
+	decode[signatureDTO](t, e.upload(t, "/api/signatures?folder="+sf.ID, "s.png", e.sigPNG), 201)
+	df := decode[folderDTO](t, e.postJSON(t, "/api/folders", map[string]string{"kind": "document", "name": "Docs"}), 201)
+	decode[documentDTO](t, e.upload(t, "/api/documents?folder="+df.ID, "d.pdf", makePDF(t)), 201)
+
+	// Folder-scoped root listings hide the foldered items.
+	if len(listSigs(t, e, "")) != 0 || len(listDocs(t, e, "")) != 0 {
+		t.Fatal("root listings should be empty")
+	}
+	// The flat listing surfaces them for the editor.
+	if len(listSigs(t, e, "?all=true")) != 1 {
+		t.Fatal("?all=true should list the foldered signature")
+	}
+	if len(listDocs(t, e, "?all=true")) != 1 {
+		t.Fatal("?all=true should list the foldered document")
+	}
+}
+
 func listTrash(t *testing.T, e *testEnv) struct {
 	Events        []trashEventDTO `json:"events"`
 	RetentionDays int             `json:"retentionDays"`

@@ -51,7 +51,9 @@ func documentToDTO(d store.Document) documentDTO {
 
 func (s *Server) handleListDocuments(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	list, err := s.store.ListDocuments(r.Context(), sess.UserID, folderParam(r, "folder"))
+	// ?all=true returns every document across folders (used by the signing editor); otherwise
+	// the listing is scoped to one folder.
+	list, err := s.listDocuments(r, sess.UserID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -61,6 +63,13 @@ func (s *Server) handleListDocuments(w http.ResponseWriter, r *http.Request) {
 		out = append(out, documentToDTO(d))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"documents": out})
+}
+
+func (s *Server) listDocuments(r *http.Request, userID string) ([]store.Document, error) {
+	if r.URL.Query().Get("all") == "true" {
+		return s.store.ListAllDocuments(r.Context(), userID)
+	}
+	return s.store.ListDocuments(r.Context(), userID, folderParam(r, "folder"))
 }
 
 func (s *Server) handleUploadDocument(w http.ResponseWriter, r *http.Request) {

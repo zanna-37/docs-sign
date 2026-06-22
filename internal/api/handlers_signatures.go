@@ -63,7 +63,15 @@ func (s *Server) readUpload(w http.ResponseWriter, r *http.Request) (data []byte
 
 func (s *Server) handleListSignatures(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	list, err := s.store.ListSignatures(r.Context(), sess.UserID, folderParam(r, "folder"))
+	// ?all=true returns every signature across folders (used by the signing editor); otherwise
+	// the listing is scoped to one folder.
+	var list []store.Signature
+	var err error
+	if r.URL.Query().Get("all") == "true" {
+		list, err = s.store.ListAllSignatures(r.Context(), sess.UserID)
+	} else {
+		list, err = s.store.ListSignatures(r.Context(), sess.UserID, folderParam(r, "folder"))
+	}
 	if err != nil {
 		writeServiceError(w, err)
 		return

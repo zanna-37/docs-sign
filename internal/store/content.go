@@ -200,14 +200,33 @@ func (s *Store) CreateSignature(ctx context.Context, sig *Signature) error {
 	})
 }
 
+const signatureSelect = `
+	SELECT id, user_id, name, blob_path, byte_size, width, height, folder_id, created_at, updated_at
+	FROM signatures`
+
+// ListSignatures lists active signatures directly inside folderID (root when invalid).
 func (s *Store) ListSignatures(ctx context.Context, userID string, folderID sql.NullString) ([]Signature, error) {
-	rows, err := s.queryItemsInFolder(ctx, `
-		SELECT id, user_id, name, blob_path, byte_size, width, height, folder_id, created_at, updated_at
-		FROM signatures`, userID, folderID)
+	rows, err := s.queryItemsInFolder(ctx, signatureSelect, userID, folderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	return scanSignatures(rows)
+}
+
+// ListAllSignatures lists every active signature for a user across all folders — the flat list
+// the signing editor needs to place any signature regardless of where it is filed.
+func (s *Store) ListAllSignatures(ctx context.Context, userID string) ([]Signature, error) {
+	rows, err := s.db.QueryContext(ctx,
+		signatureSelect+` WHERE user_id=? AND deleted_at IS NULL ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanSignatures(rows)
+}
+
+func scanSignatures(rows *sql.Rows) ([]Signature, error) {
 	var out []Signature
 	for rows.Next() {
 		var sig Signature
@@ -272,14 +291,32 @@ func (s *Store) CreateDocument(ctx context.Context, d *Document) error {
 	})
 }
 
+const documentSelect = `
+	SELECT id, user_id, name, blob_path, byte_size, page_count, folder_id, created_at, updated_at
+	FROM documents`
+
+// ListDocuments lists active documents directly inside folderID (root when invalid).
 func (s *Store) ListDocuments(ctx context.Context, userID string, folderID sql.NullString) ([]Document, error) {
-	rows, err := s.queryItemsInFolder(ctx, `
-		SELECT id, user_id, name, blob_path, byte_size, page_count, folder_id, created_at, updated_at
-		FROM documents`, userID, folderID)
+	rows, err := s.queryItemsInFolder(ctx, documentSelect, userID, folderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	return scanDocuments(rows)
+}
+
+// ListAllDocuments lists every active document for a user across all folders.
+func (s *Store) ListAllDocuments(ctx context.Context, userID string) ([]Document, error) {
+	rows, err := s.db.QueryContext(ctx,
+		documentSelect+` WHERE user_id=? AND deleted_at IS NULL ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanDocuments(rows)
+}
+
+func scanDocuments(rows *sql.Rows) ([]Document, error) {
 	var out []Document
 	for rows.Next() {
 		var d Document
