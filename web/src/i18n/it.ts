@@ -138,6 +138,7 @@ const it: Dict = {
     exportName: "{{name}} (firmato)",
     yourSignatures: "Le tue firme",
     noSignatures: "Ancora nessuna firma.",
+    emptyFolder: "Nessuna firma in questa cartella.",
     addOne: "Aggiungine una",
     addText: "Aggiungi testo",
     tip: "Seleziona una firma, clicca su una pagina per applicarla, poi trascina per spostarla, usa gli angoli per ridimensionarla o la maniglia in alto per ruotarla.",

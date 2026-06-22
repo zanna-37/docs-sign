@@ -135,6 +135,7 @@ const en = {
     exportName: "{{name}} (signed)",
     yourSignatures: "Your signatures",
     noSignatures: "No signatures yet.",
+    emptyFolder: "No signatures in this folder.",
     addOne: "Add one",
     addText: "Add text",
     tip: "Select a signature, click a page to place it, then drag to move, pull the corners to resize, or use the top handle to rotate.",
