@@ -51,7 +51,7 @@ export function TrashPage() {
       "/trash",
     );
     setEvents(res.events ?? []);
-    setRetentionDays(res.retentionDays || 30);
+    setRetentionDays(res.retentionDays);
     return res.events ?? [];
   }, []);
 
