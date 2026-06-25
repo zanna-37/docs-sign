@@ -51,12 +51,14 @@ export function EditorPage() {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [pages, setPages] = useState<PageSize[]>([]);
   const [scale, setScale] = useState(1);
-  // signatures is the full flat set (loaded once) — it backs the aspect-ratio / bitmap lookups
-  // for placed signatures. The picker below browses it by folder rather than showing it flat.
-  const [signatures, setSignatures] = useState<Signature[]>([]);
+  // The picker loads only the current folder's signatures (folderSigs). placedMeta remembers the
+  // metadata of just the signatures that have been placed, so they keep their aspect ratio and
+  // stay rendered after you navigate away — without ever fetching the whole set.
   const [sigFolderId, setSigFolderId] = useState<string | null>(null);
   const [sigFolders, setSigFolders] = useState<Folder[]>([]);
   const [sigPath, setSigPath] = useState<Folder[]>([]);
+  const [folderSigs, setFolderSigs] = useState<Signature[]>([]);
+  const [placedMeta, setPlacedMeta] = useState<Record<string, Signature>>({});
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [textboxes, setTextboxes] = useState<TextBox[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -72,13 +74,11 @@ export function EditorPage() {
     let active = true;
     (async () => {
       try {
-        const [docList, sigRes] = await Promise.all([
-          api.get<{ documents: DocumentItem[] }>("/documents?all=true"),
-          api.get<{ signatures: Signature[] }>("/signatures?all=true"),
-        ]);
+        const docList = await api.get<{ documents: DocumentItem[] }>(
+          "/documents?all=true",
+        );
         if (!active) return;
         setDocName(docList.documents?.find((d) => d.id === id)?.name ?? "");
-        setSignatures(sigRes.signatures ?? []);
         const pdfBytes = await fetchArrayBuffer(`/api/documents/${id}/file`);
         const loaded = await loadPdf(pdfBytes);
         if (!active) {
@@ -105,24 +105,46 @@ export function EditorPage() {
 
   useEffect(() => () => destroyRef.current?.(), []);
 
-  // Load the signature subfolders + breadcrumb for the picker as it is navigated.
+  // Load the current signature folder's subfolders, breadcrumb, and signatures as it is browsed.
   useEffect(() => {
     let active = true;
-    const q = sigFolderId
+    const folderQ = sigFolderId
       ? `?kind=signature&parent=${encodeURIComponent(sigFolderId)}`
       : "?kind=signature";
-    api
-      .get<FolderListResponse>(`/folders${q}`)
-      .then((res) => {
+    const sigQ = sigFolderId ? `?folder=${encodeURIComponent(sigFolderId)}` : "";
+    Promise.all([
+      api.get<FolderListResponse>(`/folders${folderQ}`),
+      api.get<{ signatures: Signature[] }>(`/signatures${sigQ}`),
+    ])
+      .then(([folders, sigs]) => {
         if (!active) return;
-        setSigFolders(res.folders ?? []);
-        setSigPath(res.path ?? []);
+        setSigFolders(folders.folders ?? []);
+        setSigPath(folders.path ?? []);
+        setFolderSigs(sigs.signatures ?? []);
       })
       .catch(() => {});
     return () => {
       active = false;
     };
   }, [sigFolderId]);
+
+  // Remember the metadata of placed signatures only (captured from the folder they were placed
+  // from), so they survive navigation to other folders.
+  useEffect(() => {
+    setPlacedMeta((prev) => {
+      let next = prev;
+      for (const p of placements) {
+        if (!next[p.signatureId]) {
+          const meta = folderSigs.find((s) => s.id === p.signatureId);
+          if (meta) {
+            if (next === prev) next = { ...prev };
+            next[p.signatureId] = meta;
+          }
+        }
+      }
+      return next;
+    });
+  }, [placements, folderSigs]);
 
   // Delete key removes the selected item (signature or text box).
   useEffect(() => {
@@ -143,11 +165,19 @@ export function EditorPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedId]);
 
-  const sigMap = useMemo(
-    () => new Map(signatures.map((s) => [s.id, s])),
-    [signatures],
-  );
-  const sigIds = useMemo(() => signatures.map((s) => s.id), [signatures]);
+  // Metadata for the signatures we might draw: those in view plus those already placed.
+  const sigMap = useMemo(() => {
+    const m = new Map<string, Signature>();
+    for (const s of Object.values(placedMeta)) m.set(s.id, s);
+    for (const s of folderSigs) m.set(s.id, s);
+    return m;
+  }, [placedMeta, folderSigs]);
+  // Download images only for the signatures on screen (current folder) plus any already placed.
+  const sigIds = useMemo(() => {
+    const ids = new Set(folderSigs.map((s) => s.id));
+    for (const p of placements) ids.add(p.signatureId);
+    return Array.from(ids);
+  }, [folderSigs, placements]);
   const sigBitmaps = useSignatureBitmaps(sigIds);
 
   const aspectFor = (signatureId: string) => {
@@ -416,72 +446,66 @@ export function EditorPage() {
               </Button>
             </div>
             <Breadcrumb path={sigPath} onNavigate={setSigFolderId} />
-            {(() => {
-              const inFolder = signatures.filter(
-                (s) => (s.folderId ?? null) === sigFolderId,
-              );
-              if (sigFolders.length === 0 && inFolder.length === 0) {
-                return signatures.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    {t("editor.noSignatures")}{" "}
-                    <Link to="/signatures" className="text-blue-600">
-                      {t("editor.addOne")}
-                    </Link>
-                    .
-                  </p>
-                ) : (
-                  <p className="text-sm text-gray-500">{t("editor.emptyFolder")}</p>
-                );
-              }
-              return (
-                <div className="space-y-2">
-                  {sigFolders.map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => setSigFolderId(f.id)}
-                      className="flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:bg-gray-50"
+            {sigFolders.length === 0 && folderSigs.length === 0 ? (
+              sigFolderId === null ? (
+                <p className="text-sm text-gray-500">
+                  {t("editor.noSignatures")}{" "}
+                  <Link to="/signatures" className="text-blue-600">
+                    {t("editor.addOne")}
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">{t("editor.emptyFolder")}</p>
+              )
+            ) : (
+              <div className="space-y-2">
+                {sigFolders.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setSigFolderId(f.id)}
+                    className="flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:bg-gray-50"
+                  >
+                    <FolderIcon className="h-5 w-5 shrink-0 text-blue-500" />
+                    <span className="truncate text-sm font-medium text-gray-700">
+                      {f.name}
+                    </span>
+                  </button>
+                ))}
+                {folderSigs.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setArmed(armed === s.id ? null : s.id);
+                      setArmText(false);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-lg border p-2 text-left transition ${
+                      armed === s.id
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <span
+                      className="flex h-10 w-16 shrink-0 items-center justify-center rounded"
+                      style={checkerStyle}
                     >
-                      <FolderIcon className="h-5 w-5 shrink-0 text-blue-500" />
-                      <span className="truncate text-sm font-medium text-gray-700">
-                        {f.name}
-                      </span>
-                    </button>
-                  ))}
-                  {inFolder.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setArmed(armed === s.id ? null : s.id);
-                        setArmText(false);
-                      }}
-                      className={`flex w-full items-center gap-2 rounded-lg border p-2 text-left transition ${
-                        armed === s.id
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 bg-white hover:bg-gray-50"
-                      }`}
-                    >
-                      <span
-                        className="flex h-10 w-16 shrink-0 items-center justify-center rounded"
-                        style={checkerStyle}
-                      >
-                        {sigBitmaps[s.id] ? (
-                          <SignatureCanvas
-                            bitmap={sigBitmaps[s.id]}
-                            ariaLabel={s.name}
-                            className="max-h-full max-w-full object-contain"
-                          />
-                        ) : (
-                          <span className="h-8 w-12 animate-pulse rounded bg-gray-100" />
-                        )}
-                      </span>
-                      <span className="truncate text-sm text-gray-700">
-                        {s.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
+                      {sigBitmaps[s.id] ? (
+                        <SignatureCanvas
+                          bitmap={sigBitmaps[s.id]}
+                          ariaLabel={s.name}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      ) : (
+                        <span className="h-8 w-12 animate-pulse rounded bg-gray-100" />
+                      )}
+                    </span>
+                    <span className="truncate text-sm text-gray-700">
+                      {s.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {selectedText && (
