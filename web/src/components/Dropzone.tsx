@@ -1,4 +1,11 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
+
+// isFileDrag reports whether a drag carries external files. Internal moves (dragging a folder or
+// item onto a folder) carry our custom payload instead, so the Dropzone must ignore them and let
+// the folder drop targets handle them.
+function isFileDrag(e: DragEvent): boolean {
+  return Array.from(e.dataTransfer.types || []).includes("Files");
+}
 
 // Dropzone wraps content and accepts files dropped anywhere over it, showing an overlay
 // while dragging. A drag counter avoids flicker when moving over child elements.
@@ -18,17 +25,22 @@ export function Dropzone({
     <div
       className="relative min-h-[70vh]"
       onDragEnter={(e) => {
+        if (!isFileDrag(e)) return;
         e.preventDefault();
         counter.current += 1;
         setDragging(true);
       }}
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={(e) => {
+        if (isFileDrag(e)) e.preventDefault();
+      }}
       onDragLeave={(e) => {
+        if (!isFileDrag(e)) return;
         e.preventDefault();
         counter.current -= 1;
         if (counter.current <= 0) setDragging(false);
       }}
       onDrop={(e) => {
+        if (!isFileDrag(e)) return;
         e.preventDefault();
         counter.current = 0;
         setDragging(false);

@@ -6,6 +6,8 @@ import { api, errMessage } from "../api/client";
 import type {
   DocumentItem,
   ExportItem,
+  Folder,
+  FolderListResponse,
   PlacementInput,
   Signature,
 } from "../api/types";
@@ -15,7 +17,9 @@ import { checkerBackground } from "../lib/checker";
 import { fetchArrayBuffer } from "../lib/blobUrls";
 import { useSignatureBitmaps } from "../lib/signatureBitmaps";
 import { uid } from "../lib/uid";
-import type { Placement, SignatureMeta } from "../editor/types";
+import type { Placement } from "../editor/types";
+import { Breadcrumb } from "../components/folders/Breadcrumb";
+import { FolderIcon } from "../components/icons";
 import {
   newTextBox,
   refit,
@@ -47,7 +51,14 @@ export function EditorPage() {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [pages, setPages] = useState<PageSize[]>([]);
   const [scale, setScale] = useState(1);
-  const [signatures, setSignatures] = useState<SignatureMeta[]>([]);
+  // The picker loads only the current folder's signatures (folderSigs). placedMeta remembers the
+  // metadata of just the signatures that have been placed, so they keep their aspect ratio and
+  // stay rendered after you navigate away — without ever fetching the whole set.
+  const [sigFolderId, setSigFolderId] = useState<string | null>(null);
+  const [sigFolders, setSigFolders] = useState<Folder[]>([]);
+  const [sigPath, setSigPath] = useState<Folder[]>([]);
+  const [folderSigs, setFolderSigs] = useState<Signature[]>([]);
+  const [placedMeta, setPlacedMeta] = useState<Record<string, Signature>>({});
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [textboxes, setTextboxes] = useState<TextBox[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -63,20 +74,11 @@ export function EditorPage() {
     let active = true;
     (async () => {
       try {
-        const [docList, sigRes] = await Promise.all([
-          api.get<{ documents: DocumentItem[] }>("/documents"),
-          api.get<{ signatures: Signature[] }>("/signatures"),
-        ]);
+        const docList = await api.get<{ documents: DocumentItem[] }>(
+          "/documents?all=true",
+        );
         if (!active) return;
         setDocName(docList.documents?.find((d) => d.id === id)?.name ?? "");
-        setSignatures(
-          (sigRes.signatures ?? []).map((s) => ({
-            id: s.id,
-            name: s.name,
-            width: s.width,
-            height: s.height,
-          })),
-        );
         const pdfBytes = await fetchArrayBuffer(`/api/documents/${id}/file`);
         const loaded = await loadPdf(pdfBytes);
         if (!active) {
@@ -103,6 +105,47 @@ export function EditorPage() {
 
   useEffect(() => () => destroyRef.current?.(), []);
 
+  // Load the current signature folder's subfolders, breadcrumb, and signatures as it is browsed.
+  useEffect(() => {
+    let active = true;
+    const folderQ = sigFolderId
+      ? `?kind=signature&parent=${encodeURIComponent(sigFolderId)}`
+      : "?kind=signature";
+    const sigQ = sigFolderId ? `?folder=${encodeURIComponent(sigFolderId)}` : "";
+    Promise.all([
+      api.get<FolderListResponse>(`/folders${folderQ}`),
+      api.get<{ signatures: Signature[] }>(`/signatures${sigQ}`),
+    ])
+      .then(([folders, sigs]) => {
+        if (!active) return;
+        setSigFolders(folders.folders ?? []);
+        setSigPath(folders.path ?? []);
+        setFolderSigs(sigs.signatures ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [sigFolderId]);
+
+  // Remember the metadata of placed signatures only (captured from the folder they were placed
+  // from), so they survive navigation to other folders.
+  useEffect(() => {
+    setPlacedMeta((prev) => {
+      let next = prev;
+      for (const p of placements) {
+        if (!next[p.signatureId]) {
+          const meta = folderSigs.find((s) => s.id === p.signatureId);
+          if (meta) {
+            if (next === prev) next = { ...prev };
+            next[p.signatureId] = meta;
+          }
+        }
+      }
+      return next;
+    });
+  }, [placements, folderSigs]);
+
   // Delete key removes the selected item (signature or text box).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -122,11 +165,19 @@ export function EditorPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedId]);
 
-  const sigMap = useMemo(
-    () => new Map(signatures.map((s) => [s.id, s])),
-    [signatures],
-  );
-  const sigIds = useMemo(() => signatures.map((s) => s.id), [signatures]);
+  // Metadata for the signatures we might draw: those in view plus those already placed.
+  const sigMap = useMemo(() => {
+    const m = new Map<string, Signature>();
+    for (const s of Object.values(placedMeta)) m.set(s.id, s);
+    for (const s of folderSigs) m.set(s.id, s);
+    return m;
+  }, [placedMeta, folderSigs]);
+  // Download images only for the signatures on screen (current folder) plus any already placed.
+  const sigIds = useMemo(() => {
+    const ids = new Set(folderSigs.map((s) => s.id));
+    for (const p of placements) ids.add(p.signatureId);
+    return Array.from(ids);
+  }, [folderSigs, placements]);
   const sigBitmaps = useSignatureBitmaps(sigIds);
 
   const aspectFor = (signatureId: string) => {
@@ -394,17 +445,34 @@ export function EditorPage() {
                 + {t("editor.addText")}
               </Button>
             </div>
-            {signatures.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                {t("editor.noSignatures")}{" "}
-                <Link to="/signatures" className="text-blue-600">
-                  {t("editor.addOne")}
-                </Link>
-                .
-              </p>
+            <Breadcrumb path={sigPath} onNavigate={setSigFolderId} />
+            {sigFolders.length === 0 && folderSigs.length === 0 ? (
+              sigFolderId === null ? (
+                <p className="text-sm text-gray-500">
+                  {t("editor.noSignatures")}{" "}
+                  <Link to="/signatures" className="text-blue-600">
+                    {t("editor.addOne")}
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">{t("editor.emptyFolder")}</p>
+              )
             ) : (
               <div className="space-y-2">
-                {signatures.map((s) => (
+                {sigFolders.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setSigFolderId(f.id)}
+                    className="flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:bg-gray-50"
+                  >
+                    <FolderIcon className="h-5 w-5 shrink-0 text-blue-500" />
+                    <span className="truncate text-sm font-medium text-gray-700">
+                      {f.name}
+                    </span>
+                  </button>
+                ))}
+                {folderSigs.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => {

@@ -18,6 +18,7 @@ var pngMagic = []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}
 type signatureDTO struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
+	FolderID  string `json:"folderId,omitempty"`
 	Width     int    `json:"width"`
 	Height    int    `json:"height"`
 	ByteSize  int64  `json:"byteSize"`
@@ -26,7 +27,7 @@ type signatureDTO struct {
 
 func signatureToDTO(s store.Signature) signatureDTO {
 	return signatureDTO{
-		ID: s.ID, Name: s.Name, Width: s.Width, Height: s.Height,
+		ID: s.ID, Name: s.Name, FolderID: s.FolderID.String, Width: s.Width, Height: s.Height,
 		ByteSize: s.ByteSize, CreatedAt: s.CreatedAt.Format(time.RFC3339),
 	}
 }
@@ -62,7 +63,15 @@ func (s *Server) readUpload(w http.ResponseWriter, r *http.Request) (data []byte
 
 func (s *Server) handleListSignatures(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	list, err := s.store.ListSignatures(r.Context(), sess.UserID)
+	// ?all=true returns every signature across folders (used by the signing editor); otherwise
+	// the listing is scoped to one folder.
+	var list []store.Signature
+	var err error
+	if r.URL.Query().Get("all") == "true" {
+		list, err = s.store.ListAllSignatures(r.Context(), sess.UserID)
+	} else {
+		list, err = s.store.ListSignatures(r.Context(), sess.UserID, folderParam(r, "folder"))
+	}
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -90,6 +99,11 @@ func (s *Server) handleUploadSignature(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	folder := folderParam(r, "folder")
+	if !s.resolveOverwrite(w, r, sess.UserID, store.KindSignature, name) {
+		return
+	}
+
 	dek := sess.DEK()
 	defer crypto.Zero(dek)
 	id := store.NewID()
@@ -100,7 +114,7 @@ func (s *Server) handleUploadSignature(w http.ResponseWriter, r *http.Request) {
 	}
 	sig := &store.Signature{
 		ID: id, UserID: sess.UserID, Name: name, BlobPath: relPath,
-		ByteSize: size, Width: cfg.Width, Height: cfg.Height,
+		ByteSize: size, Width: cfg.Width, Height: cfg.Height, FolderID: folder,
 	}
 	if err := s.store.CreateSignature(r.Context(), sig); err != nil {
 		_ = s.blobs.Delete(relPath)
@@ -126,28 +140,41 @@ func (s *Server) handleSignatureImage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleRenameSignature(w http.ResponseWriter, r *http.Request) {
+// handlePatchSignature renames a signature (name) and/or moves it (move.folderId, null = root).
+func (s *Server) handlePatchSignature(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
+	id := chi.URLParam(r, "id")
 	var req struct {
-		Name string `json:"name"`
+		Name *string `json:"name"`
+		Move *struct {
+			FolderID *string `json:"folderId"`
+		} `json:"move"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if req.Name == "" {
-		writeError(w, http.StatusBadRequest, "name is required")
-		return
+	if req.Name != nil {
+		if *req.Name == "" {
+			writeError(w, http.StatusBadRequest, "name is required")
+			return
+		}
+		if err := s.store.RenameSignature(r.Context(), sess.UserID, id, *req.Name); err != nil {
+			writeServiceError(w, err)
+			return
+		}
 	}
-	if err := s.store.RenameSignature(r.Context(), sess.UserID, chi.URLParam(r, "id"), req.Name); err != nil {
-		writeServiceError(w, err)
-		return
+	if req.Move != nil {
+		if err := s.store.MoveSignature(r.Context(), sess.UserID, id, ptrToNull(req.Move.FolderID)); err != nil {
+			writeServiceError(w, err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (s *Server) handleDeleteSignature(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
-	if err := s.store.SoftDeleteSignature(r.Context(), sess.UserID, chi.URLParam(r, "id")); err != nil {
+	if _, err := s.store.TrashNode(r.Context(), sess.UserID, store.KindSignature, chi.URLParam(r, "id")); err != nil {
 		writeServiceError(w, err)
 		return
 	}

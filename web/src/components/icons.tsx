@@ -18,6 +18,59 @@ export function TrashIcon({ className = "h-4 w-4" }: Readonly<{ className?: stri
   );
 }
 
+export function FolderIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+    </svg>
+  );
+}
+
+export function FolderPlusIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+      <path d="M12 11v5M9.5 13.5h5" />
+    </svg>
+  );
+}
+
+export function RestoreIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 7v6h6" />
+      <path d="M3.5 13a9 9 0 1 0 2.3-9.3L3 6" />
+    </svg>
+  );
+}
+
 export function ChevronIcon({ className }: Readonly<{ className?: string }>) {
   return (
     <svg
