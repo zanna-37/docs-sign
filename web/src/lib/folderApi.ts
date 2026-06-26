@@ -12,6 +12,21 @@ export function createFolder(
   return api.post<Folder>("/folders", { kind, parentId: parentId ?? "", name });
 }
 
+// ensureFolderPath get-or-creates a chain of folders (named by path) under parentId and resolves
+// to the leaf folder, reusing folders that already exist. Used to recreate an uploaded directory
+// tree before filing its files.
+export function ensureFolderPath(
+  kind: FolderKind,
+  parentId: string | null,
+  path: string[],
+): Promise<Folder> {
+  return api.post<Folder>("/folders/ensure", {
+    kind,
+    parentId: parentId ?? "",
+    path,
+  });
+}
+
 export function renameFolder(id: string, name: string): Promise<unknown> {
   return api.patch(`/folders/${id}`, { name });
 }

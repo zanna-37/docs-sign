@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -93,6 +94,79 @@ func (s *Store) CreateFolder(ctx context.Context, f *Folder) error {
 			f.ID, f.UserID, f.Kind, f.ParentID, f.Name, now, now)
 		return err
 	})
+}
+
+// findActiveFolderByName returns the id of an active folder named name directly under parentID
+// for this user+kind, reporting whether one exists. Used to merge an uploaded directory tree
+// into folders that already exist instead of failing on a name clash.
+func findActiveFolderByName(ctx context.Context, q querier, userID, kind string, parentID sql.NullString, name string) (string, bool, error) {
+	var id string
+	var err error
+	if parentID.Valid {
+		err = q.QueryRowContext(ctx,
+			`SELECT id FROM folders
+			 WHERE user_id=? AND kind=? AND parent_id=? AND name=? AND deleted_at IS NULL LIMIT 1`,
+			userID, kind, parentID.String, name).Scan(&id)
+	} else {
+		err = q.QueryRowContext(ctx,
+			`SELECT id FROM folders
+			 WHERE user_id=? AND kind=? AND parent_id IS NULL AND name=? AND deleted_at IS NULL LIMIT 1`,
+			userID, kind, name).Scan(&id)
+	}
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return id, true, nil
+}
+
+// EnsureFolderPath walks segments from parentID downward (root when invalid), reusing the active
+// folder at each level or creating one when missing, and returns the id of the leaf folder. It
+// lets the client recreate an uploaded directory tree, merging into folders that already exist.
+// Empty/whitespace segments are skipped; if nothing remains, the leaf is parentID itself.
+func (s *Store) EnsureFolderPath(ctx context.Context, userID, kind string, parentID sql.NullString, segments []string) (string, error) {
+	var leafID string
+	err := s.withTx(ctx, func(tx *sql.Tx) error {
+		cur := parentID
+		if cur.Valid {
+			pk, err := requireActiveFolder(ctx, tx, userID, cur.String)
+			if err != nil {
+				return err
+			}
+			if pk != kind {
+				return ErrNotFound
+			}
+		}
+		for _, raw := range segments {
+			name := strings.TrimSpace(raw)
+			if name == "" {
+				continue
+			}
+			id, found, err := findActiveFolderByName(ctx, tx, userID, kind, cur, name)
+			if err != nil {
+				return err
+			}
+			if !found {
+				now := time.Now().Unix()
+				id = NewID()
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO folders (id, user_id, kind, parent_id, name, created_at, updated_at)
+					VALUES (?,?,?,?,?,?,?)`,
+					id, userID, kind, cur, name, now, now); err != nil {
+					return err
+				}
+			}
+			cur = sql.NullString{String: id, Valid: true}
+		}
+		leafID = cur.String
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return leafID, nil
 }
 
 // ListFolders returns the active folders directly under parentID (root when invalid) for the

@@ -99,6 +99,10 @@ const en = {
     apply: "Apply",
     in: "in {{path}}",
   },
+  uploads: {
+    progress: "Uploading {{done}} of {{total}}…",
+    uploadFolder: "Upload folder",
+  },
   signatures: {
     title: "Signatures",
     subtitle: "Upload transparent PNG signatures to place on your documents.",

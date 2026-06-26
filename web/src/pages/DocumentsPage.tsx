@@ -5,17 +5,22 @@ import { api, errMessage } from "../api/client";
 import type { DocumentItem, ExportItem, Folder } from "../api/types";
 import { Button, Card, ErrorText, Spinner } from "../components/ui";
 import { Dropzone } from "../components/Dropzone";
+import { UploadProgress } from "../components/UploadProgress";
 import { useDialog } from "../components/Dialog";
-import { ChevronIcon, FolderPlusIcon, TrashIcon } from "../components/icons";
+import {
+  ChevronIcon,
+  FolderPlusIcon,
+  FolderUploadIcon,
+  TrashIcon,
+} from "../components/icons";
 import { Breadcrumb } from "../components/folders/Breadcrumb";
 import { SubfolderList } from "../components/folders/SubfolderList";
 import { MoveDialog } from "../components/folders/MoveDialog";
-import {
-  ConflictDialog,
-  type ConflictItem,
-} from "../components/folders/ConflictDialog";
+import { ConflictDialog } from "../components/folders/ConflictDialog";
 import { formatBytes, formatDate } from "../lib/format";
 import { useFolders } from "../lib/useFolders";
+import { useUploads } from "../lib/useUploads";
+import { entriesFromInput } from "../lib/uploads";
 import {
   createFolder,
   deleteFolder,
@@ -24,6 +29,9 @@ import {
   renameFolder,
 } from "../lib/folderApi";
 import { setDragItem, type DragItem } from "../lib/dragItem";
+
+// The directory-picker attributes are non-standard and missing from React's input typings.
+const directoryInputProps = { webkitdirectory: "", directory: "" } as Record<string, string>;
 
 // Mirrors the server's inline-safe allowlist (handleDocumentFile): only these types are
 // previewed in the browser; everything else is download-only.
@@ -52,13 +60,9 @@ export function DocumentsPage() {
   const [exports, setExports] = useState<ExportItem[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
   const [moving, setMoving] = useState<MoveTarget | null>(null);
-  const [pendingUpload, setPendingUpload] = useState<{
-    files: File[];
-    conflicts: ConflictItem[];
-  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const folderUploadRef = useRef<HTMLInputElement>(null);
 
   const folderQuery = folderId ? `?folder=${encodeURIComponent(folderId)}` : "";
   const pathLabel = "/" + path.map((f) => f.name).join("/");
@@ -93,59 +97,20 @@ export function DocumentsPage() {
     return m;
   }, [exports]);
 
-  // --- uploads (with name-collision handling) ---
+  // --- uploads (with progress + folder-structure recreation) ---
 
-  const docUploadPath = (overwrite: boolean) => {
-    const params = new URLSearchParams();
-    if (folderId) params.set("folder", folderId);
-    if (overwrite) params.set("overwrite", "true");
-    const qs = params.toString();
-    return `/documents${qs ? `?${qs}` : ""}`;
-  };
+  const uploads = useUploads({
+    kind: "document",
+    folderId,
+    pathLabel,
+    reload,
+    setError,
+  });
 
-  const doUpload = async (
-    files: File[],
-    resolutions: Record<string, { action: string; newName?: string }>,
-  ) => {
-    setError("");
-    setBusy(true);
-    try {
-      for (const file of files) {
-        const r = resolutions[file.name];
-        if (r?.action === "skip") continue;
-        const name = r?.action === "rename" && r.newName ? r.newName : file.name;
-        await api.upload<DocumentItem>(
-          docUploadPath(r?.action === "override"),
-          file,
-          name,
-        );
-      }
-      await reload();
-    } catch (err) {
-      setError(errMessage(err, t("common.uploadFailed")));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const uploadFiles = (files: File[]) => {
-    setError("");
-    if (files.length === 0) return;
-    const existing = new Set((items ?? []).map((d) => d.name));
-    const conflicts = files
-      .filter((f) => existing.has(f.name))
-      .map((f) => ({ id: f.name, name: f.name, destPath: pathLabel }));
-    if (conflicts.length > 0) {
-      setPendingUpload({ files, conflicts });
-    } else {
-      void doUpload(files, {});
-    }
-  };
-
-  const onUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length) uploads.uploadEntries(entriesFromInput(files));
     e.target.value = "";
-    if (files.length) uploadFiles(files);
   };
 
   // --- folder operations ---
@@ -280,7 +245,7 @@ export function DocumentsPage() {
   const isEmpty = items !== null && items.length === 0 && folders.length === 0;
 
   return (
-    <Dropzone onFiles={uploadFiles} label={t("documents.drop")}>
+    <Dropzone onUpload={uploads.uploadEntries} label={t("documents.drop")}>
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -299,15 +264,33 @@ export function DocumentsPage() {
               type="file"
               multiple
               className="hidden"
-              onChange={onUpload}
+              onChange={onPick}
             />
-            <Button onClick={() => fileRef.current?.click()} disabled={busy}>
-              {busy ? t("documents.uploading") : t("documents.upload")}
+            <input
+              ref={folderUploadRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={onPick}
+              {...directoryInputProps}
+            />
+            <Button
+              variant="secondary"
+              onClick={() => folderUploadRef.current?.click()}
+              disabled={uploads.busy}
+            >
+              <FolderUploadIcon className="h-4 w-4" />
+              {t("uploads.uploadFolder")}
+            </Button>
+            <Button onClick={() => fileRef.current?.click()} disabled={uploads.busy}>
+              {uploads.busy ? t("documents.uploading") : t("documents.upload")}
             </Button>
           </div>
         </div>
 
         <Breadcrumb path={path} onNavigate={setFolderId} onDropInto={handleDrop} />
+
+        {uploads.progress && <UploadProgress progress={uploads.progress} />}
 
         <ErrorText>{error}</ErrorText>
 
@@ -507,15 +490,11 @@ export function DocumentsPage() {
         />
       )}
 
-      {pendingUpload && (
+      {uploads.pending && (
         <ConflictDialog
-          conflicts={pendingUpload.conflicts}
-          onCancel={() => setPendingUpload(null)}
-          onResolve={(res) => {
-            const files = pendingUpload.files;
-            setPendingUpload(null);
-            void doUpload(files, res);
-          }}
+          conflicts={uploads.pending.conflicts}
+          onCancel={uploads.cancelPending}
+          onResolve={uploads.resolvePending}
         />
       )}
     </Dropzone>

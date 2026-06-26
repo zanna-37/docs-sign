@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { entriesFromDataTransfer, type UploadEntry } from "../lib/uploads";
 
 // isFileDrag reports whether a drag carries external files. Internal moves (dragging a folder or
 // item onto a folder) carry our custom payload instead, so the Dropzone must ignore them and let
@@ -7,14 +8,14 @@ function isFileDrag(e: DragEvent): boolean {
   return Array.from(e.dataTransfer.types || []).includes("Files");
 }
 
-// Dropzone wraps content and accepts files dropped anywhere over it, showing an overlay
-// while dragging. A drag counter avoids flicker when moving over child elements.
+// Dropzone wraps content and accepts files (and whole folders) dropped anywhere over it, showing
+// an overlay while dragging. A drag counter avoids flicker when moving over child elements.
 export function Dropzone({
-  onFiles,
+  onUpload,
   label = "Drop files to upload",
   children,
 }: Readonly<{
-  onFiles: (files: File[]) => void;
+  onUpload: (entries: UploadEntry[]) => void;
   label?: string;
   children: ReactNode;
 }>) {
@@ -44,8 +45,11 @@ export function Dropzone({
         e.preventDefault();
         counter.current = 0;
         setDragging(false);
-        const files = Array.from(e.dataTransfer.files || []);
-        if (files.length) onFiles(files);
+        // Capture entries synchronously (the DataTransfer is only valid during the event), then
+        // hand off the recreated file/folder structure once traversal resolves.
+        void entriesFromDataTransfer(e.dataTransfer).then((entries) => {
+          if (entries.length) onUpload(entries);
+        });
       }}
     >
       {children}

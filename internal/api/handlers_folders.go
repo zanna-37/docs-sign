@@ -93,6 +93,40 @@ func (s *Server) handleCreateFolder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, folderToDTO(*f))
 }
 
+// handleEnsureFolderPath get-or-creates the chain of folders named by path under parentId and
+// returns the leaf folder. The client uses it to recreate an uploaded directory tree before
+// placing files inside it; existing folders along the path are reused rather than duplicated.
+func (s *Server) handleEnsureFolderPath(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	var req struct {
+		Kind     string   `json:"kind"`
+		ParentID string   `json:"parentId"`
+		Path     []string `json:"path"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !validFolderKind(req.Kind) {
+		writeError(w, http.StatusBadRequest, "invalid folder kind")
+		return
+	}
+	if len(req.Path) == 0 {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+	leafID, err := s.store.EnsureFolderPath(r.Context(), sess.UserID, req.Kind, nullStr(req.ParentID), req.Path)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	f, err := s.store.GetFolder(r.Context(), sess.UserID, leafID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, folderToDTO(*f))
+}
+
 // handlePatchFolder renames a folder (name) and/or moves it (move.parentId, null = root).
 func (s *Server) handlePatchFolder(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())

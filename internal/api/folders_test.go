@@ -296,6 +296,49 @@ func TestFlatListingIncludesFolderedItems(t *testing.T) {
 	}
 }
 
+func TestEnsureFolderPathAPI(t *testing.T) {
+	renderer, err := pdfproc.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer renderer.Close()
+
+	e := newTestEnv(t, renderer)
+	e.setupAndLogin(t)
+
+	// Recreate a nested path and file a document into the leaf — the folder-upload flow.
+	leaf := decode[folderDTO](t, e.postJSON(t, "/api/folders/ensure",
+		map[string]any{"kind": "document", "path": []string{"reports", "2026"}}), 201)
+	if leaf.Name != "2026" {
+		t.Fatalf("leaf should be the deepest segment, got %+v", leaf)
+	}
+	decode[documentDTO](t, e.upload(t, "/api/documents?folder="+leaf.ID, "q1.pdf", makePDF(t)), 201)
+	if docs := listDocs(t, e, "?folder="+leaf.ID); len(docs) != 1 || docs[0].Name != "q1.pdf" {
+		t.Fatalf("document should land in the recreated leaf, got %+v", docs)
+	}
+
+	// Re-ensuring a path that shares the prefix reuses "reports" and only adds the new leaf.
+	other := decode[folderDTO](t, e.postJSON(t, "/api/folders/ensure",
+		map[string]any{"kind": "document", "path": []string{"reports", "2025"}}), 201)
+	if other.ID == leaf.ID {
+		t.Fatal("diverging leaf should be a distinct folder")
+	}
+	roots := listFolders(t, e, "?kind=document")
+	if len(roots.Folders) != 1 || roots.Folders[0].Name != "reports" {
+		t.Fatalf("prefix folder should be reused, got %+v", roots)
+	}
+	reports := roots.Folders[0]
+	if kids := listFolders(t, e, "?kind=document&parent="+reports.ID); len(kids.Folders) != 2 {
+		t.Fatalf("reports should hold two year folders, got %+v", kids.Folders)
+	}
+
+	// An empty path is rejected.
+	if resp := e.postJSON(t, "/api/folders/ensure",
+		map[string]any{"kind": "document", "path": []string{}}); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty path should be 400, got %d", resp.StatusCode)
+	}
+}
+
 func listTrash(t *testing.T, e *testEnv) struct {
 	Events        []trashEventDTO `json:"events"`
 	RetentionDays int             `json:"retentionDays"`

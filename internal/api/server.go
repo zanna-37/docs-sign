@@ -149,6 +149,7 @@ func (s *Server) Router() http.Handler {
 
 				r.Get("/folders", s.handleListFolders)
 				r.Post("/folders", s.handleCreateFolder)
+				r.Post("/folders/ensure", s.handleEnsureFolderPath)
 				r.Patch("/folders/{id}", s.handlePatchFolder)
 				r.Delete("/folders/{id}", s.handleDeleteFolder)
 

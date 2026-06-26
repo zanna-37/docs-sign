@@ -102,6 +102,10 @@ const it: Dict = {
     apply: "Applica",
     in: "in {{path}}",
   },
+  uploads: {
+    progress: "Caricamento {{done}} di {{total}}…",
+    uploadFolder: "Carica cartella",
+  },
   signatures: {
     title: "Firme",
     subtitle: "Carica firme PNG trasparenti da applicare ai tuoi documenti.",
