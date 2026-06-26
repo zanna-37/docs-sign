@@ -134,6 +134,18 @@ func (s *Server) resolveOverwrite(w http.ResponseWriter, r *http.Request, userID
 	return true
 }
 
+// handleGetDocument returns a single document's metadata by id. The signing editor uses it to
+// resolve the open document's name without listing the whole library.
+func (s *Server) handleGetDocument(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	doc, err := s.store.GetDocument(r.Context(), sess.UserID, chi.URLParam(r, "id"))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, documentToDTO(*doc))
+}
+
 func (s *Server) handleDocumentFile(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	doc, err := s.store.GetDocument(r.Context(), sess.UserID, chi.URLParam(r, "id"))

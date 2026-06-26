@@ -160,6 +160,7 @@ func (s *Server) Router() http.Handler {
 
 				r.Get("/documents", s.handleListDocuments)
 				r.Post("/documents", s.handleUploadDocument)
+				r.Get("/documents/{id}", s.handleGetDocument)
 				r.Get("/documents/{id}/file", s.handleDocumentFile)
 				r.Patch("/documents/{id}", s.handlePatchDocument)
 				r.Delete("/documents/{id}", s.handleDeleteDocument)

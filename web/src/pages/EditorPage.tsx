@@ -74,11 +74,9 @@ export function EditorPage() {
     let active = true;
     (async () => {
       try {
-        const docList = await api.get<{ documents: DocumentItem[] }>(
-          "/documents?all=true",
-        );
+        const docMeta = await api.get<DocumentItem>(`/documents/${id}`);
         if (!active) return;
-        setDocName(docList.documents?.find((d) => d.id === id)?.name ?? "");
+        setDocName(docMeta.name ?? "");
         const pdfBytes = await fetchArrayBuffer(`/api/documents/${id}/file`);
         const loaded = await loadPdf(pdfBytes);
         if (!active) {
