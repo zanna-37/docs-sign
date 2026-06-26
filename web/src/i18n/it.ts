@@ -48,6 +48,7 @@ const it: Dict = {
     title: "Accedi",
     submit: "Accedi",
     submitting: "Accesso…",
+    remember: "Ricorda nome utente",
     failed: "Impossibile accedere.",
     forgot: "Password dimenticata?",
     useRecovery: "Usa il codice di recupero",
@@ -82,6 +83,8 @@ const it: Dict = {
     newPrompt: "Nome della nuova cartella",
     renamePrompt: "Rinomina cartella",
     move: "Sposta",
+    download: "Scarica cartella come ZIP",
+    downloadCurrent: "Scarica cartella",
     moveHere: "Sposta qui",
     moveHereHint: "Apri una cartella, poi spostala al suo interno.",
     moveTitleNamed: "Sposta “{{name}}”",
@@ -101,6 +104,10 @@ const it: Dict = {
     rename: "Rinomina",
     apply: "Applica",
     in: "in {{path}}",
+  },
+  uploads: {
+    progress: "Caricamento {{done}} di {{total}}…",
+    uploadFolder: "Carica cartella",
   },
   signatures: {
     title: "Firme",

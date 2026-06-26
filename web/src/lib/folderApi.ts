@@ -12,6 +12,21 @@ export function createFolder(
   return api.post<Folder>("/folders", { kind, parentId: parentId ?? "", name });
 }
 
+// ensureFolderPath get-or-creates a chain of folders (named by path) under parentId and resolves
+// to the leaf folder, reusing folders that already exist. Used to recreate an uploaded directory
+// tree before filing its files.
+export function ensureFolderPath(
+  kind: FolderKind,
+  parentId: string | null,
+  path: string[],
+): Promise<Folder> {
+  return api.post<Folder>("/folders/ensure", {
+    kind,
+    parentId: parentId ?? "",
+    path,
+  });
+}
+
 export function renameFolder(id: string, name: string): Promise<unknown> {
   return api.patch(`/folders/${id}`, { name });
 }
@@ -22,6 +37,18 @@ export function moveFolder(id: string, parentId: string | null): Promise<unknown
 
 export function deleteFolder(id: string): Promise<unknown> {
   return api.del(`/folders/${id}`);
+}
+
+// downloadFolder triggers a browser download of the folder's whole subtree as a ZIP archive that
+// mirrors the folder structure. The endpoint streams an attachment, so a transient anchor click
+// saves the file (sending the session cookie) without navigating away.
+export function downloadFolder(id: string, name: string): void {
+  const a = document.createElement("a");
+  a.href = `/api/folders/${encodeURIComponent(id)}/download`;
+  a.download = `${name}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 export function moveItem(

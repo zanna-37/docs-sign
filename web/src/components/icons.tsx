@@ -53,6 +53,43 @@ export function FolderPlusIcon({ className = "h-4 w-4" }: Readonly<{ className?:
   );
 }
 
+export function FolderUploadIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+      <path d="M12 17v-5M9.5 14l2.5-2.5L14.5 14" />
+    </svg>
+  );
+}
+
+export function DownloadIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
 export function RestoreIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
   return (
     <svg

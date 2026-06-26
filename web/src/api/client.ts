@@ -64,3 +64,53 @@ export const api = {
     return asJSON<T>(path, { method: "POST", body: fd });
   },
 };
+
+// Byte counts for an in-flight upload.
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+}
+
+// uploadWithProgress posts a single file as multipart/form-data and reports byte-level upload
+// progress. It uses XMLHttpRequest because fetch exposes no upload progress events; the request
+// shape, credentials, CSRF header and error mapping mirror api.upload / asJSON.
+export function uploadWithProgress<T>(
+  path: string,
+  file: File | Blob,
+  name: string,
+  onProgress?: (p: UploadProgress) => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("name", name);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api" + path);
+    // Same-origin request: cookies ride along by default. The custom header satisfies the
+    // server's CSRF guard (browsers can't set it cross-origin without a denied preflight).
+    xhr.setRequestHeader("X-Requested-With", "fetch");
+
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress({ loaded: e.loaded, total: e.total });
+      };
+    }
+    xhr.onload = () => {
+      let data: { error?: string } | null = null;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        data = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as T);
+      } else {
+        reject(new ApiError(xhr.status, data?.error || xhr.statusText, data));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Network error"));
+    xhr.onabort = () => reject(new ApiError(0, "Upload aborted"));
+    xhr.send(fd);
+  });
+}

@@ -45,6 +45,7 @@ const en = {
     title: "Log in",
     submit: "Log in",
     submitting: "Logging in…",
+    remember: "Remember username",
     failed: "Could not log in.",
     forgot: "Forgot your password?",
     useRecovery: "Use recovery code",
@@ -79,6 +80,8 @@ const en = {
     newPrompt: "New folder name",
     renamePrompt: "Rename folder",
     move: "Move",
+    download: "Download folder as ZIP",
+    downloadCurrent: "Download folder",
     moveHere: "Move here",
     moveHereHint: "Open a folder, then move into it.",
     moveTitleNamed: 'Move "{{name}}"',
@@ -98,6 +101,10 @@ const en = {
     rename: "Rename",
     apply: "Apply",
     in: "in {{path}}",
+  },
+  uploads: {
+    progress: "Uploading {{done}} of {{total}}…",
+    uploadFolder: "Upload folder",
   },
   signatures: {
     title: "Signatures",

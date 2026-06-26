@@ -2,7 +2,7 @@ import { type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { Folder } from "../../api/types";
 import { getDragItem, setDragItem, type DragItem } from "../../lib/dragItem";
-import { FolderIcon, TrashIcon } from "../icons";
+import { DownloadIcon, FolderIcon, TrashIcon } from "../icons";
 
 // SubfolderList renders the folders inside the current folder as a grid of draggable cards that
 // double as drop targets (drop an item or folder onto one to move it inside).
@@ -11,6 +11,7 @@ export function SubfolderList({
   onOpen,
   onRename,
   onMove,
+  onDownload,
   onDelete,
   onDropInto,
 }: Readonly<{
@@ -18,6 +19,7 @@ export function SubfolderList({
   onOpen: (id: string) => void;
   onRename: (f: Folder) => void;
   onMove: (f: Folder) => void;
+  onDownload: (f: Folder) => void;
   onDelete: (f: Folder) => void;
   onDropInto: (folderId: string, item: DragItem) => void;
 }>) {
@@ -66,6 +68,15 @@ export function SubfolderList({
               className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             >
               {t("folders.move")}
+            </button>
+            <button
+              type="button"
+              onClick={() => onDownload(f)}
+              title={t("folders.download")}
+              aria-label={t("folders.download")}
+              className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <DownloadIcon className="h-4 w-4" />
             </button>
             <button
               type="button"

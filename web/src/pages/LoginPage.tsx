@@ -5,13 +5,28 @@ import { api, errMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import type { User } from "../api/types";
 import { AuthShell } from "../components/AuthShell";
-import { Button, ErrorText, Field, Input, PasswordInput } from "../components/ui";
+import {
+  Button,
+  Checkbox,
+  ErrorText,
+  Field,
+  Input,
+  PasswordInput,
+} from "../components/ui";
+
+// localStorage key for the last-used username, pre-filled on the next visit.
+const REMEMBERED_USER_KEY = "docs-sign:rememberedUsername";
 
 export function LoginPage() {
   const { setUser } = useAuth();
   const { t } = useTranslation();
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(
+    () => localStorage.getItem(REMEMBERED_USER_KEY) ?? "",
+  );
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
+  // Captured once at mount: with a remembered username, focus the password instead.
+  const [prefilled] = useState(() => !!localStorage.getItem(REMEMBERED_USER_KEY));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -24,6 +39,9 @@ export function LoginPage() {
         username,
         password,
       });
+      // Remember the username for next time, or forget it when unchecked.
+      if (remember) localStorage.setItem(REMEMBERED_USER_KEY, username);
+      else localStorage.removeItem(REMEMBERED_USER_KEY);
       setUser(res.user);
     } catch (err) {
       setError(errMessage(err, t("login.failed")));
@@ -38,7 +56,7 @@ export function LoginPage() {
           <Input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            autoFocus
+            autoFocus={!prefilled}
             autoComplete="username"
             required
           />
@@ -47,10 +65,16 @@ export function LoginPage() {
           <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoFocus={prefilled}
             autoComplete="current-password"
             required
           />
         </Field>
+        <Checkbox
+          label={t("login.remember")}
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+        />
         <ErrorText>{error}</ErrorText>
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? t("login.submitting") : t("login.submit")}

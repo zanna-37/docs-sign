@@ -545,6 +545,62 @@ func TestRestoreFolderMergeWithFileConflict(t *testing.T) {
 	})
 }
 
+func TestEnsureFolderPath(t *testing.T) {
+	s := newTestStore(t)
+	uid := mustUser(t, s)
+	ctx := context.Background()
+	root := sql.NullString{}
+
+	// A fresh path creates every level and returns the leaf.
+	leaf, err := s.EnsureFolderPath(ctx, uid, KindDocument, root, []string{"a", "b", "c"})
+	if err != nil {
+		t.Fatalf("ensure fresh path: %v", err)
+	}
+	path, err := s.FolderPath(ctx, uid, leaf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := []string{path[0].Name, path[1].Name, path[2].Name}; got[0] != "a" || got[1] != "b" || got[2] != "c" {
+		t.Fatalf("unexpected leaf path: %+v", got)
+	}
+
+	// Re-ensuring the same path reuses the existing folders (no duplicates, same leaf).
+	leaf2, err := s.EnsureFolderPath(ctx, uid, KindDocument, root, []string{"a", "b", "c"})
+	if err != nil {
+		t.Fatalf("ensure existing path: %v", err)
+	}
+	if leaf2 != leaf {
+		t.Fatalf("expected the same leaf on re-ensure, got %q want %q", leaf2, leaf)
+	}
+	if names := folderNames(t, s, uid, KindDocument, root); len(names) != 1 || !names["a"] {
+		t.Fatalf("expected a single top-level folder 'a', got %+v", names)
+	}
+
+	// A diverging path reuses the shared prefix and only creates the new tail.
+	if _, err := s.EnsureFolderPath(ctx, uid, KindDocument, root, []string{"a", "b", "d"}); err != nil {
+		t.Fatalf("ensure diverging path: %v", err)
+	}
+	bID, found, err := findActiveFolderByName(ctx, s.db, uid, KindDocument, root, "a")
+	if err != nil || !found {
+		t.Fatalf("locate 'a': found=%v err=%v", found, err)
+	}
+	aChildren := folderNames(t, s, uid, KindDocument, sql.NullString{String: bID, Valid: true})
+	if len(aChildren) != 1 || !aChildren["b"] {
+		t.Fatalf("expected 'a' to hold only 'b', got %+v", aChildren)
+	}
+
+	// Whitespace-only segments are skipped, so an all-blank path resolves to the parent itself.
+	parent := mkFolder(t, s, uid, KindDocument, root, "parent")
+	leaf3, err := s.EnsureFolderPath(ctx, uid, KindDocument,
+		sql.NullString{String: parent, Valid: true}, []string{"  ", ""})
+	if err != nil {
+		t.Fatalf("ensure blank path: %v", err)
+	}
+	if leaf3 != parent {
+		t.Fatalf("blank path should resolve to the parent, got %q want %q", leaf3, parent)
+	}
+}
+
 // folderOf returns the (possibly trashed) folder id that contains an item — used to address a
 // trashed folder by its root for restore.
 func folderOf(t *testing.T, s *Store, uid, itemID string) string {
