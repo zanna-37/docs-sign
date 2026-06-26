@@ -371,11 +371,6 @@ export function DocumentsPage() {
                           {t("common.preview")}
                         </Button>
                       )}
-                      <a href={`/api/documents/${d.id}/file`} download={d.name}>
-                        <Button variant="secondary">
-                          {t("common.download")}
-                        </Button>
-                      </a>
                       <Button variant="secondary" onClick={() => rename(d)}>
                         {t("common.rename")}
                       </Button>
@@ -387,6 +382,16 @@ export function DocumentsPage() {
                       >
                         {t("folders.move")}
                       </Button>
+                      <a href={`/api/documents/${d.id}/file`} download={d.name}>
+                        <Button
+                          variant="secondary"
+                          className="px-2"
+                          title={t("common.download")}
+                          aria-label={t("common.download")}
+                        >
+                          <DownloadIcon className="h-4 w-4" />
+                        </Button>
+                      </a>
                       <Button
                         variant="secondary"
                         className="px-2"
@@ -468,8 +473,13 @@ export function DocumentsPage() {
                                   {t("common.preview")}
                                 </Button>
                                 <a href={`/api/exports/${x.id}/file`} download>
-                                  <Button variant="secondary">
-                                    {t("common.download")}
+                                  <Button
+                                    variant="secondary"
+                                    className="px-2"
+                                    title={t("common.download")}
+                                    aria-label={t("common.download")}
+                                  >
+                                    <DownloadIcon className="h-4 w-4" />
                                   </Button>
                                 </a>
                                 <Button
