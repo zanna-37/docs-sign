@@ -169,6 +169,57 @@ func (s *Store) EnsureFolderPath(ctx context.Context, userID, kind string, paren
 	return leafID, nil
 }
 
+// FolderArchiveEntry is one item to include in a folder download: the decrypted contents of
+// BlobPath are written to ArchivePath (a forward-slash path) inside the archive.
+type FolderArchiveEntry struct {
+	ArchivePath string
+	BlobPath    string
+}
+
+// CollectFolderArchive returns every active item in the subtree rooted at folderID (an active
+// folder owned by userID), each tagged with its path inside an archive: the folder names from the
+// root folder down, then the item name. The root folder itself becomes the archive's top-level
+// directory. Entries are ordered by path for a stable archive.
+func (s *Store) CollectFolderArchive(ctx context.Context, userID, folderID string) ([]FolderArchiveEntry, error) {
+	kind, err := requireActiveFolder(ctx, s.db, userID, folderID)
+	if err != nil {
+		return nil, err
+	}
+	table, ok := tableForKind(kind)
+	if !ok {
+		return nil, ErrNotFound
+	}
+	// Walk the folder subtree, building each folder's archive path (root name first), then join
+	// the active items in each folder. The validated table name is interpolated; its bind params
+	// are still parameterized.
+	query := `
+		WITH RECURSIVE tree(id, path) AS (
+			SELECT id, name FROM folders WHERE id=? AND user_id=? AND deleted_at IS NULL
+			UNION ALL
+			SELECT f.id, tree.path || '/' || f.name
+			FROM folders f JOIN tree ON f.parent_id = tree.id
+			WHERE f.user_id=? AND f.deleted_at IS NULL
+		)
+		SELECT tree.path || '/' || i.name AS archive_path, i.blob_path
+		FROM tree JOIN ` + table + ` i ON i.folder_id = tree.id
+		WHERE i.user_id=? AND i.deleted_at IS NULL
+		ORDER BY archive_path`
+	rows, err := s.db.QueryContext(ctx, query, folderID, userID, userID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FolderArchiveEntry
+	for rows.Next() {
+		var e FolderArchiveEntry
+		if err := rows.Scan(&e.ArchivePath, &e.BlobPath); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // ListFolders returns the active folders directly under parentID (root when invalid) for the
 // given kind, alphabetically.
 func (s *Store) ListFolders(ctx context.Context, userID, kind string, parentID sql.NullString) ([]Folder, error) {

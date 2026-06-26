@@ -7,7 +7,12 @@ import { SignatureImage } from "../components/SignatureImage";
 import { Dropzone } from "../components/Dropzone";
 import { UploadProgress } from "../components/UploadProgress";
 import { useDialog } from "../components/Dialog";
-import { FolderPlusIcon, FolderUploadIcon, TrashIcon } from "../components/icons";
+import {
+  DownloadIcon,
+  FolderPlusIcon,
+  FolderUploadIcon,
+  TrashIcon,
+} from "../components/icons";
 import { Breadcrumb } from "../components/folders/Breadcrumb";
 import { SubfolderList } from "../components/folders/SubfolderList";
 import { MoveDialog } from "../components/folders/MoveDialog";
@@ -20,6 +25,7 @@ import { entriesFromInput } from "../lib/uploads";
 import {
   createFolder,
   deleteFolder,
+  downloadFolder,
   moveFolder,
   moveItem,
   renameFolder,
@@ -216,6 +222,18 @@ export function SignaturesPage() {
               <FolderPlusIcon className="h-4 w-4" />
               {t("folders.new")}
             </Button>
+            {path.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const f = path[path.length - 1];
+                  downloadFolder(f.id, f.name);
+                }}
+              >
+                <DownloadIcon className="h-4 w-4" />
+                {t("folders.downloadCurrent")}
+              </Button>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -258,6 +276,7 @@ export function SignaturesPage() {
           onOpen={setFolderId}
           onRename={renameFolderItem}
           onMove={(f) => setMoving({ type: "folder", id: f.id, name: f.name })}
+          onDownload={(f) => downloadFolder(f.id, f.name)}
           onDelete={deleteFolderItem}
           onDropInto={handleDrop}
         />

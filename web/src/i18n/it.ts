@@ -82,6 +82,8 @@ const it: Dict = {
     newPrompt: "Nome della nuova cartella",
     renamePrompt: "Rinomina cartella",
     move: "Sposta",
+    download: "Scarica cartella come ZIP",
+    downloadCurrent: "Scarica cartella",
     moveHere: "Sposta qui",
     moveHereHint: "Apri una cartella, poi spostala al suo interno.",
     moveTitleNamed: "Sposta “{{name}}”",

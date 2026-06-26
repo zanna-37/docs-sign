@@ -79,6 +79,8 @@ const en = {
     newPrompt: "New folder name",
     renamePrompt: "Rename folder",
     move: "Move",
+    download: "Download folder as ZIP",
+    downloadCurrent: "Download folder",
     moveHere: "Move here",
     moveHereHint: "Open a folder, then move into it.",
     moveTitleNamed: 'Move "{{name}}"',

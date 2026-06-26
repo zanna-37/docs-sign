@@ -1,11 +1,15 @@
 package api
 
 import (
+	"archive/zip"
+	"fmt"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"docs-sign/internal/crypto"
 	"docs-sign/internal/store"
 )
 
@@ -157,6 +161,47 @@ func (s *Server) handlePatchFolder(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleDownloadFolder streams a ZIP of every item in the folder's subtree, recreating the
+// folder structure as directories inside the archive. Blobs are decrypted on the fly into the
+// zip; plaintext never touches disk.
+func (s *Server) handleDownloadFolder(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	id := chi.URLParam(r, "id")
+	folder, err := s.store.GetFolder(r.Context(), sess.UserID, id)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	entries, err := s.store.CollectFolderArchive(r.Context(), sess.UserID, id)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	dek := sess.DEK()
+	defer crypto.Zero(dek)
+
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", sanitizeFilename(folder.Name+".zip")))
+
+	// Once the first entry is written the status is committed to 200, so a mid-stream failure can
+	// only truncate the archive (the client sees a corrupt zip) — it is logged, not reported.
+	zw := zip.NewWriter(w)
+	defer zw.Close()
+	for _, e := range entries {
+		fw, err := zw.Create(e.ArchivePath)
+		if err != nil {
+			log.Printf("folder download %s: create entry: %v", id, err)
+			return
+		}
+		if err := s.blobs.DecryptTo(e.BlobPath, dek, fw); err != nil {
+			log.Printf("folder download %s: write %q: %v", id, e.ArchivePath, err)
+			return
+		}
+	}
 }
 
 // handleDeleteFolder moves a folder and its whole subtree to the trash as one event.

@@ -9,6 +9,7 @@ import { UploadProgress } from "../components/UploadProgress";
 import { useDialog } from "../components/Dialog";
 import {
   ChevronIcon,
+  DownloadIcon,
   FolderPlusIcon,
   FolderUploadIcon,
   TrashIcon,
@@ -24,6 +25,7 @@ import { entriesFromInput } from "../lib/uploads";
 import {
   createFolder,
   deleteFolder,
+  downloadFolder,
   moveFolder,
   moveItem,
   renameFolder,
@@ -259,6 +261,18 @@ export function DocumentsPage() {
               <FolderPlusIcon className="h-4 w-4" />
               {t("folders.new")}
             </Button>
+            {path.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const f = path[path.length - 1];
+                  downloadFolder(f.id, f.name);
+                }}
+              >
+                <DownloadIcon className="h-4 w-4" />
+                {t("folders.downloadCurrent")}
+              </Button>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -299,6 +313,7 @@ export function DocumentsPage() {
           onOpen={setFolderId}
           onRename={renameFolderItem}
           onMove={(f) => setMoving({ type: "folder", id: f.id, name: f.name })}
+          onDownload={(f) => downloadFolder(f.id, f.name)}
           onDelete={deleteFolderItem}
           onDropInto={handleDrop}
         />

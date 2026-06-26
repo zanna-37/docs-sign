@@ -1,8 +1,10 @@
 package api
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 
@@ -336,6 +338,68 @@ func TestEnsureFolderPathAPI(t *testing.T) {
 	if resp := e.postJSON(t, "/api/folders/ensure",
 		map[string]any{"kind": "document", "path": []string{}}); resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("empty path should be 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestDownloadFolderAPI(t *testing.T) {
+	renderer, err := pdfproc.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer renderer.Close()
+
+	e := newTestEnv(t, renderer)
+	e.setupAndLogin(t)
+
+	// Build /Reports/2026 and file a document at each level.
+	reports := decode[folderDTO](t, e.postJSON(t, "/api/folders",
+		map[string]string{"kind": "document", "name": "Reports"}), 201)
+	y2026 := decode[folderDTO](t, e.postJSON(t, "/api/folders",
+		map[string]string{"kind": "document", "parentId": reports.ID, "name": "2026"}), 201)
+	pdf := makePDF(t)
+	decode[documentDTO](t, e.upload(t, "/api/documents?folder="+reports.ID, "top.pdf", pdf), 201)
+	decode[documentDTO](t, e.upload(t, "/api/documents?folder="+y2026.ID, "q1.pdf", pdf), 201)
+
+	resp := e.postReq(t, http.MethodGet, "/api/folders/"+reports.ID+"/download")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("download status %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/zip" {
+		t.Fatalf("content-type %q", ct)
+	}
+	if cd := resp.Header.Get("Content-Disposition"); cd != `attachment; filename="Reports.zip"` {
+		t.Fatalf("content-disposition %q", cd)
+	}
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+
+	// The archive mirrors the folder tree (root folder as the top directory) and each entry
+	// decrypts back to the original document bytes.
+	names := map[string]bool{}
+	for _, f := range zr.File {
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(data, pdf) {
+			t.Fatalf("entry %q content mismatch", f.Name)
+		}
+		names[f.Name] = true
+	}
+	if len(names) != 2 || !names["Reports/top.pdf"] || !names["Reports/2026/q1.pdf"] {
+		t.Fatalf("unexpected archive entries: %v", names)
 	}
 }
 

@@ -39,6 +39,18 @@ export function deleteFolder(id: string): Promise<unknown> {
   return api.del(`/folders/${id}`);
 }
 
+// downloadFolder triggers a browser download of the folder's whole subtree as a ZIP archive that
+// mirrors the folder structure. The endpoint streams an attachment, so a transient anchor click
+// saves the file (sending the session cookie) without navigating away.
+export function downloadFolder(id: string, name: string): void {
+  const a = document.createElement("a");
+  a.href = `/api/folders/${encodeURIComponent(id)}/download`;
+  a.download = `${name}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export function moveItem(
   kind: "document" | "signature",
   id: string,
