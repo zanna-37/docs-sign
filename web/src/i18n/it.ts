@@ -115,12 +115,12 @@ const it: Dict = {
   },
   documents: {
     title: "Documenti",
-    subtitle: "Carica PDF, applica le firme ed esporta una copia appiattita.",
-    upload: "Carica PDF",
+    subtitle:
+      "Carica documenti di qualsiasi tipo. I PDF possono essere firmati; gli altri file vengono conservati in modo sicuro.",
+    upload: "Carica",
     uploading: "Caricamento…",
-    empty: "Ancora nessun documento. Carica un PDF o trascinalo qui per iniziare.",
-    drop: "Trascina qui i documenti PDF da caricare",
-    notPdf: "“{{name}}” non è un PDF.",
+    empty: "Ancora nessun documento. Carica un file o trascinalo qui per iniziare.",
+    drop: "Trascina qui i file da caricare",
     sign: "Firma",
     signed: "Firmati",
     signedCopies: "Copie firmate",
@@ -155,6 +155,7 @@ const it: Dict = {
     savedNotice: "PDF firmato scaricato e salvato nelle copie firmate del documento.",
     exportFailed: "Esportazione non riuscita.",
     openFailed: "Impossibile aprire il documento.",
+    notSignable: "Questo documento non è un PDF, quindi non può essere firmato.",
     confirmLeave: "Hai modifiche non salvate. Uscire senza esportare?",
     needPlacement: "Aggiungi prima almeno una firma o una casella di testo.",
     text: {

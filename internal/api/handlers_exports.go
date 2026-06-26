@@ -75,20 +75,26 @@ func (s *Server) handleDeleteExport(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// downloadFilename produces a safe .pdf filename from a display name.
-func downloadFilename(name string) string {
+// sanitizeFilename makes a display name safe to embed in a Content-Disposition header, without
+// changing its extension.
+func sanitizeFilename(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = "document"
 	}
 	// Drop characters that are awkward in headers/filenames.
-	name = strings.Map(func(r rune) rune {
+	return strings.Map(func(r rune) rune {
 		switch r {
 		case '"', '\\', '/', '\n', '\r', '\t':
 			return '_'
 		}
 		return r
 	}, name)
+}
+
+// downloadFilename produces a safe .pdf filename from a display name (exports are always PDFs).
+func downloadFilename(name string) string {
+	name = sanitizeFilename(name)
 	if !strings.HasSuffix(strings.ToLower(name), ".pdf") {
 		name += ".pdf"
 	}

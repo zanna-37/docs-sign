@@ -112,12 +112,12 @@ const en = {
   },
   documents: {
     title: "Documents",
-    subtitle: "Upload PDFs, then place signatures and export a flattened copy.",
-    upload: "Upload PDF",
+    subtitle:
+      "Upload documents of any type. PDFs can be signed; other files are stored securely.",
+    upload: "Upload",
     uploading: "Uploading…",
-    empty: "No documents yet. Upload a PDF or drag one here to get started.",
-    drop: "Drop PDF documents to upload",
-    notPdf: '"{{name}}" is not a PDF.',
+    empty: "No documents yet. Upload a file or drag one here to get started.",
+    drop: "Drop files to upload",
     sign: "Sign",
     signed: "Signed",
     signedCopies: "Signed copies",
@@ -152,6 +152,7 @@ const en = {
     savedNotice: "Signed PDF downloaded and saved to this document’s signed copies.",
     exportFailed: "Export failed.",
     openFailed: "Failed to open document.",
+    notSignable: "This document is not a PDF, so it cannot be signed.",
     confirmLeave: "You have unsaved changes. Leave without exporting?",
     needPlacement: "Add at least one signature or text box first.",
     text: {

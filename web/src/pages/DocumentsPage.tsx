@@ -25,7 +25,18 @@ import {
 } from "../lib/folderApi";
 import { setDragItem, type DragItem } from "../lib/dragItem";
 
-const pdfName = (name: string) => (/\.pdf$/i.test(name) ? name : `${name}.pdf`);
+// Mirrors the server's inline-safe allowlist (handleDocumentFile): only these types are
+// previewed in the browser; everything else is download-only.
+const PREVIEWABLE = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+]);
+const isPreviewable = (contentType: string) =>
+  contentType.startsWith("text/plain") || PREVIEWABLE.has(contentType);
 
 type MoveTarget =
   | { type: "folder"; id: string; name: string }
@@ -119,23 +130,15 @@ export function DocumentsPage() {
 
   const uploadFiles = (files: File[]) => {
     setError("");
-    const pdfs: File[] = [];
-    for (const file of files) {
-      if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
-        pdfs.push(file);
-      } else {
-        setError(t("documents.notPdf", { name: file.name }));
-      }
-    }
-    if (pdfs.length === 0) return;
+    if (files.length === 0) return;
     const existing = new Set((items ?? []).map((d) => d.name));
-    const conflicts = pdfs
+    const conflicts = files
       .filter((f) => existing.has(f.name))
       .map((f) => ({ id: f.name, name: f.name, destPath: pathLabel }));
     if (conflicts.length > 0) {
-      setPendingUpload({ files: pdfs, conflicts });
+      setPendingUpload({ files, conflicts });
     } else {
-      void doUpload(pdfs, {});
+      void doUpload(files, {});
     }
   };
 
@@ -294,7 +297,6 @@ export function DocumentsPage() {
             <input
               ref={fileRef}
               type="file"
-              accept="application/pdf"
               multiple
               className="hidden"
               onChange={onUpload}
@@ -343,18 +345,35 @@ export function DocumentsPage() {
                         {d.name}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {t("documents.page", { count: d.pageCount })} ·{" "}
+                        {d.signable
+                          ? `${t("documents.page", { count: d.pageCount })} · `
+                          : ""}
                         {formatBytes(d.byteSize)} · {formatDate(d.createdAt)}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-1">
-                      <Button onClick={() => navigate(`/documents/${d.id}/sign`)}>
-                        {t("documents.sign")}
-                      </Button>
-                      <a
-                        href={`/api/documents/${d.id}/file`}
-                        download={pdfName(d.name)}
-                      >
+                      {d.signable && (
+                        <Button
+                          onClick={() => navigate(`/documents/${d.id}/sign`)}
+                        >
+                          {t("documents.sign")}
+                        </Button>
+                      )}
+                      {isPreviewable(d.contentType) && (
+                        <Button
+                          variant="secondary"
+                          onClick={() =>
+                            window.open(
+                              `/api/documents/${d.id}/file?inline=1`,
+                              "_blank",
+                              "noopener",
+                            )
+                          }
+                        >
+                          {t("common.preview")}
+                        </Button>
+                      )}
+                      <a href={`/api/documents/${d.id}/file`} download={d.name}>
                         <Button variant="secondary">
                           {t("common.download")}
                         </Button>
@@ -379,37 +398,39 @@ export function DocumentsPage() {
                       >
                         <TrashIcon className="h-4 w-4 text-red-600" />
                       </Button>
-                      <button
-                        onClick={() =>
-                          setExpanded((m) => ({ ...m, [d.id]: !m[d.id] }))
-                        }
-                        aria-expanded={isOpen}
-                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                          isOpen
-                            ? "border-blue-200 bg-blue-50 text-blue-700"
-                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        {t("documents.signed")}
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                            docExports.length
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-gray-100 text-gray-500"
+                      {d.signable && (
+                        <button
+                          onClick={() =>
+                            setExpanded((m) => ({ ...m, [d.id]: !m[d.id] }))
+                          }
+                          aria-expanded={isOpen}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                            isOpen
+                              ? "border-blue-200 bg-blue-50 text-blue-700"
+                              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                           }`}
                         >
-                          {docExports.length}
-                        </span>
-                        <ChevronIcon
-                          className={`h-4 w-4 transition-transform duration-150 ${
-                            isOpen ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
+                          {t("documents.signed")}
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                              docExports.length
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-gray-100 text-gray-500"
+                            }`}
+                          >
+                            {docExports.length}
+                          </span>
+                          <ChevronIcon
+                            className={`h-4 w-4 transition-transform duration-150 ${
+                              isOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  {isOpen && (
+                  {d.signable && isOpen && (
                     <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-3">
                       <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                         {t("documents.signedCopies")}

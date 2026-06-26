@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -232,6 +233,66 @@ func assertBlobsEncrypted(t *testing.T, dataDir string) {
 	})
 	if count == 0 {
 		t.Fatal("expected at least one blob on disk")
+	}
+}
+
+// TestNonPDFDocuments covers the arbitrary-file pivot: any file type uploads and is stored, but
+// only a parseable PDF is signable, and non-PDFs are served with their real type — previewable
+// only for a safe subset.
+func TestNonPDFDocuments(t *testing.T) {
+	renderer, err := pdfproc.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer renderer.Close()
+	e := newTestEnv(t, renderer)
+	e.setupAndLogin(t)
+
+	// A PNG uploads fine as a non-signable document, typed by its actual bytes.
+	png := decode[documentDTO](t, e.upload(t, "/api/documents", "photo.png", e.sigPNG), 201)
+	if png.ContentType != "image/png" || png.PageCount != 0 || png.Signable {
+		t.Fatalf("unexpected png document dto: %+v", png)
+	}
+
+	// Signing a non-PDF is refused (before any placement is decoded).
+	signBody := map[string]any{
+		"placements": []map[string]any{
+			{"imageData": "ignored", "page": 0, "x": 10, "y": 10, "w": 50, "h": 20},
+		},
+	}
+	mustStatus(t, e.postJSON(t, "/api/documents/"+png.ID+"/sign", signBody), http.StatusBadRequest)
+
+	// The file is served with its real type, nosniff, and as a download by default.
+	resp := e.postReq(t, http.MethodGet, "/api/documents/"+png.ID+"/file")
+	resp.Body.Close()
+	if got := resp.Header.Get("Content-Type"); got != "image/png" {
+		t.Fatalf("file content-type = %q, want image/png", got)
+	}
+	if got := resp.Header.Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("missing nosniff, got %q", got)
+	}
+	if got := resp.Header.Get("Content-Disposition"); !strings.HasPrefix(got, "attachment") {
+		t.Fatalf("disposition = %q, want attachment", got)
+	}
+	// A safe type may be previewed inline on request.
+	resp = e.postReq(t, http.MethodGet, "/api/documents/"+png.ID+"/file?inline=1")
+	resp.Body.Close()
+	if got := resp.Header.Get("Content-Disposition"); !strings.HasPrefix(got, "inline") {
+		t.Fatalf("inline disposition = %q, want inline", got)
+	}
+
+	// A file that claims to be a PDF but does not parse is kept as a non-signable document.
+	bad := decode[documentDTO](t, e.upload(t, "/api/documents", "broken.pdf", []byte("%PDF-1.7 not really a pdf")), 201)
+	if bad.ContentType != "application/pdf" || bad.PageCount != 0 || bad.Signable {
+		t.Fatalf("unexpected broken-pdf document dto: %+v", bad)
+	}
+
+	// HTML is stored but never served inline, even when requested.
+	html := decode[documentDTO](t, e.upload(t, "/api/documents", "page.html", []byte("<!DOCTYPE html><script>alert(1)</script>")), 201)
+	resp = e.postReq(t, http.MethodGet, "/api/documents/"+html.ID+"/file?inline=1")
+	resp.Body.Close()
+	if got := resp.Header.Get("Content-Disposition"); !strings.HasPrefix(got, "attachment") {
+		t.Fatalf("html disposition = %q, want attachment (never inline)", got)
 	}
 }
 

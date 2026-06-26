@@ -44,6 +44,10 @@ export interface DocumentItem {
   folderId?: string;
   pageCount: number;
   byteSize: number;
+  // MIME type detected at upload. Any file type may be stored.
+  contentType: string;
+  // True only for a parseable PDF — the only kind that can be opened in the signing editor.
+  signable: boolean;
   createdAt: string;
 }
 

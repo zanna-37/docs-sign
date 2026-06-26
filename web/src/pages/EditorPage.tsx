@@ -77,6 +77,10 @@ export function EditorPage() {
         const docMeta = await api.get<DocumentItem>(`/documents/${id}`);
         if (!active) return;
         setDocName(docMeta.name ?? "");
+        if (!docMeta.signable) {
+          setError(t("editor.notSignable"));
+          return;
+        }
         const pdfBytes = await fetchArrayBuffer(`/api/documents/${id}/file`);
         const loaded = await loadPdf(pdfBytes);
         if (!active) {

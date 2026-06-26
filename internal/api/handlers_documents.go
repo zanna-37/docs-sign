@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -34,19 +36,58 @@ func decodeInlinePNG(data string) (image.Image, error) {
 var pdfMagic = []byte("%PDF-")
 
 type documentDTO struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	FolderID  string `json:"folderId,omitempty"`
-	PageCount int    `json:"pageCount"`
-	ByteSize  int64  `json:"byteSize"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	FolderID    string `json:"folderId,omitempty"`
+	PageCount   int    `json:"pageCount"`
+	ByteSize    int64  `json:"byteSize"`
+	ContentType string `json:"contentType"`
+	// Signable is true only for a parseable PDF; the UI uses it to gate the signing editor.
+	Signable  bool   `json:"signable"`
 	CreatedAt string `json:"createdAt"`
 }
 
 func documentToDTO(d store.Document) documentDTO {
 	return documentDTO{
 		ID: d.ID, Name: d.Name, FolderID: d.FolderID.String, PageCount: d.PageCount,
-		ByteSize: d.ByteSize, CreatedAt: d.CreatedAt.Format(time.RFC3339),
+		ByteSize: d.ByteSize, ContentType: d.ContentType, Signable: d.Signable(),
+		CreatedAt: d.CreatedAt.Format(time.RFC3339),
 	}
+}
+
+// detectContentType determines a stored document's MIME type from its bytes, falling back to the
+// filename extension only when the content is unrecognized. Sniffing wins for known formats so
+// the stored type reflects the actual bytes — a file can't lie about being a PDF or an image by
+// its name alone.
+func detectContentType(data []byte, name string) string {
+	ct := http.DetectContentType(data)
+	if ct == "application/octet-stream" {
+		if byExt := mime.TypeByExtension(filepath.Ext(name)); byExt != "" {
+			return byExt
+		}
+	}
+	return ct
+}
+
+// inlineSafeTypes are the MIME types we are willing to serve with an inline disposition (browser
+// preview). Anything that could execute script in the app's origin — HTML, SVG, XML — is
+// deliberately excluded and served as a download instead. text/plain is handled separately so its
+// charset parameter doesn't matter.
+var inlineSafeTypes = map[string]bool{
+	store.PDFContentType: true,
+	"image/png":          true,
+	"image/jpeg":         true,
+	"image/gif":          true,
+	"image/webp":         true,
+	"image/bmp":          true,
+}
+
+// inlineSafe reports whether a content type may be previewed inline in the browser.
+func inlineSafe(contentType string) bool {
+	if strings.HasPrefix(contentType, "text/plain") {
+		return true
+	}
+	return inlineSafeTypes[contentType]
 }
 
 func (s *Server) handleListDocuments(w http.ResponseWriter, r *http.Request) {
@@ -78,14 +119,14 @@ func (s *Server) handleUploadDocument(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !bytes.HasPrefix(data, pdfMagic) {
-		writeError(w, http.StatusBadRequest, "file must be a PDF")
-		return
-	}
-	pageCount, err := s.pdf.PageCount(data)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "could not read PDF")
-		return
+	// Any file type is accepted and stored encrypted. Only a parseable PDF is signable; a file
+	// that claims to be a PDF but fails to parse is still kept — just not signable (PageCount 0).
+	contentType := detectContentType(data, name)
+	pageCount := 0
+	if bytes.HasPrefix(data, pdfMagic) {
+		if n, err := s.pdf.PageCount(data); err == nil {
+			pageCount = n
+		}
 	}
 
 	folder := folderParam(r, "folder")
@@ -103,7 +144,7 @@ func (s *Server) handleUploadDocument(w http.ResponseWriter, r *http.Request) {
 	}
 	doc := &store.Document{
 		ID: id, UserID: sess.UserID, Name: name, BlobPath: relPath,
-		ByteSize: size, PageCount: pageCount, FolderID: folder,
+		ByteSize: size, PageCount: pageCount, ContentType: contentType, FolderID: folder,
 	}
 	if err := s.store.CreateDocument(r.Context(), doc); err != nil {
 		_ = s.blobs.Delete(relPath)
@@ -155,7 +196,22 @@ func (s *Server) handleDocumentFile(w http.ResponseWriter, r *http.Request) {
 	}
 	dek := sess.DEK()
 	defer crypto.Zero(dek)
-	w.Header().Set("Content-Type", "application/pdf")
+
+	contentType := doc.ContentType
+	if contentType == "" {
+		contentType = store.PDFContentType // legacy rows predate the content_type column
+	}
+	// nosniff stops the browser from re-interpreting the bytes as something executable (e.g.
+	// running an "attachment" as HTML in our origin).
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	// Preview (?inline=1) is allowed only for a safe subset; everything else is forced to
+	// download so arbitrary uploaded content can never execute in the app's origin.
+	disposition := "attachment"
+	if r.URL.Query().Get("inline") == "1" && inlineSafe(contentType) {
+		disposition = "inline"
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("%s; filename=%q", disposition, sanitizeFilename(doc.Name)))
 	_ = s.blobs.DecryptTo(doc.BlobPath, dek, w)
 }
 
@@ -233,6 +289,10 @@ func (s *Server) handleSignDocument(w http.ResponseWriter, r *http.Request) {
 	doc, err := s.store.GetDocument(r.Context(), sess.UserID, chi.URLParam(r, "id"))
 	if err != nil {
 		writeServiceError(w, err)
+		return
+	}
+	if !doc.Signable() {
+		writeError(w, http.StatusBadRequest, "document is not a signable PDF")
 		return
 	}
 

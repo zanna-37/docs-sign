@@ -25,17 +25,29 @@ type Signature struct {
 	UpdatedAt time.Time
 }
 
-// Document is an encrypted source PDF owned by a user.
+// PDFContentType is the MIME type of the only document kind that can be signed.
+const PDFContentType = "application/pdf"
+
+// Document is an encrypted document owned by a user. Any file type may be stored; only a
+// parseable PDF (ContentType PDFContentType with PageCount > 0) can be signed.
 type Document struct {
-	ID        string
-	UserID    string
-	Name      string
-	BlobPath  string
-	ByteSize  int64
-	PageCount int
-	FolderID  sql.NullString // NULL = root of the document tree
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          string
+	UserID      string
+	Name        string
+	BlobPath    string
+	ByteSize    int64
+	PageCount   int
+	ContentType string
+	FolderID    sql.NullString // NULL = root of the document tree
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// Signable reports whether the document can be signed: only a PDF that parsed at upload time
+// (yielding a page count) qualifies. Non-PDFs — and files that claim to be PDF but failed to
+// parse (PageCount 0) — are stored as-is and cannot be signed.
+func (d Document) Signable() bool {
+	return d.ContentType == PDFContentType && d.PageCount > 0
 }
 
 // Export is an encrypted, flattened (signed) PDF produced from a document.
@@ -284,15 +296,15 @@ func (s *Store) CreateDocument(ctx context.Context, d *Document) error {
 		now := time.Now().Unix()
 		d.CreatedAt, d.UpdatedAt = unixToTime(now), unixToTime(now)
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO documents (id, user_id, name, blob_path, byte_size, page_count, folder_id, created_at, updated_at)
-			VALUES (?,?,?,?,?,?,?,?,?)`,
-			d.ID, d.UserID, d.Name, d.BlobPath, d.ByteSize, d.PageCount, d.FolderID, now, now)
+			INSERT INTO documents (id, user_id, name, blob_path, byte_size, page_count, content_type, folder_id, created_at, updated_at)
+			VALUES (?,?,?,?,?,?,?,?,?,?)`,
+			d.ID, d.UserID, d.Name, d.BlobPath, d.ByteSize, d.PageCount, d.ContentType, d.FolderID, now, now)
 		return err
 	})
 }
 
 const documentSelect = `
-	SELECT id, user_id, name, blob_path, byte_size, page_count, folder_id, created_at, updated_at
+	SELECT id, user_id, name, blob_path, byte_size, page_count, content_type, folder_id, created_at, updated_at
 	FROM documents`
 
 // ListDocuments lists active documents directly inside folderID (root when invalid).
@@ -322,7 +334,7 @@ func scanDocuments(rows *sql.Rows) ([]Document, error) {
 		var d Document
 		var created, upd int64
 		if err := rows.Scan(&d.ID, &d.UserID, &d.Name, &d.BlobPath, &d.ByteSize,
-			&d.PageCount, &d.FolderID, &created, &upd); err != nil {
+			&d.PageCount, &d.ContentType, &d.FolderID, &created, &upd); err != nil {
 			return nil, err
 		}
 		d.CreatedAt, d.UpdatedAt = unixToTime(created), unixToTime(upd)
@@ -333,12 +345,12 @@ func scanDocuments(rows *sql.Rows) ([]Document, error) {
 
 func (s *Store) GetDocument(ctx context.Context, userID, id string) (*Document, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, user_id, name, blob_path, byte_size, page_count, folder_id, created_at, updated_at
+		SELECT id, user_id, name, blob_path, byte_size, page_count, content_type, folder_id, created_at, updated_at
 		FROM documents WHERE id=? AND user_id=? AND deleted_at IS NULL`, id, userID)
 	var d Document
 	var created, upd int64
 	err := row.Scan(&d.ID, &d.UserID, &d.Name, &d.BlobPath, &d.ByteSize,
-		&d.PageCount, &d.FolderID, &created, &upd)
+		&d.PageCount, &d.ContentType, &d.FolderID, &created, &upd)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}

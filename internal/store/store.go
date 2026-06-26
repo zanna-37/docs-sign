@@ -70,6 +70,10 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err := s.ensureColumn(ctx, "users", "language", "TEXT"); err != nil {
 		return err
 	}
+	// Documents predating arbitrary-file support are all PDFs; the default backfills them.
+	if err := s.ensureColumn(ctx, "documents", "content_type", "TEXT NOT NULL DEFAULT 'application/pdf'"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -220,15 +224,16 @@ CREATE TABLE IF NOT EXISTS signatures (
 );
 
 CREATE TABLE IF NOT EXISTS documents (
-    id          TEXT PRIMARY KEY,
-    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name        TEXT NOT NULL,
-    blob_path   TEXT NOT NULL,
-    byte_size   INTEGER NOT NULL,
-    page_count  INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL,
-    deleted_at  INTEGER
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    blob_path    TEXT NOT NULL,
+    byte_size    INTEGER NOT NULL,
+    page_count   INTEGER NOT NULL DEFAULT 0,
+    content_type TEXT NOT NULL DEFAULT 'application/pdf',
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    deleted_at   INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS exports (
