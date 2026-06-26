@@ -48,6 +48,7 @@ const it: Dict = {
     title: "Accedi",
     submit: "Accedi",
     submitting: "Accesso…",
+    remember: "Ricorda nome utente",
     failed: "Impossibile accedere.",
     forgot: "Password dimenticata?",
     useRecovery: "Usa il codice di recupero",

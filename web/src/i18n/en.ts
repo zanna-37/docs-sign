@@ -45,6 +45,7 @@ const en = {
     title: "Log in",
     submit: "Log in",
     submitting: "Logging in…",
+    remember: "Remember username",
     failed: "Could not log in.",
     forgot: "Forgot your password?",
     useRecovery: "Use recovery code",

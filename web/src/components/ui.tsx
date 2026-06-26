@@ -71,6 +71,23 @@ export function PasswordInput({
   );
 }
 
+export function Checkbox({
+  label,
+  className = "",
+  ...props
+}: Readonly<InputHTMLAttributes<HTMLInputElement> & { label: string }>) {
+  return (
+    <label className="flex select-none items-center gap-2 text-sm text-gray-700">
+      <input
+        type="checkbox"
+        className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-100 ${className}`}
+        {...props}
+      />
+      {label}
+    </label>
+  );
+}
+
 export function Field({
   label,
   children,
